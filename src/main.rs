@@ -56,7 +56,7 @@ async fn main() -> Result<()> {
 
     let api = healthz.or(start).or(do_move).with(cors).with(logging);
 
-    warp::serve(api).run(([127, 0, 0, 1], 6502)).await;
+    warp::serve(api).run(([0, 0, 0, 0], 6502)).await;
 
     Ok(())
 }
