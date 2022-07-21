@@ -32,8 +32,8 @@ pub struct Settings {
     pub food_spawn_chance: u64,
     pub minimum_food: u64,
     pub hazard_damage_per_turn: u64,
-    pub royale: Royale,
-    pub squad: Squad,
+    pub royale: Option<Royale>,
+    pub squad: Option<Squad>,
 }
 
 #[derive(Deserialize, Debug, Clone)]
