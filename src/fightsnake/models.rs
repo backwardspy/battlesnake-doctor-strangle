@@ -15,25 +15,10 @@ pub struct Status {
 }
 
 #[derive(Deserialize, Debug, Clone)]
-pub struct Royale {
-    pub shrink_every_n_turns: u64,
-}
-
-#[derive(Deserialize, Debug, Clone)]
-pub struct Squad {
-    pub allow_body_collisions: bool,
-    pub shared_elimination: bool,
-    pub shared_health: bool,
-    pub shared_length: bool,
-}
-
-#[derive(Deserialize, Debug, Clone)]
 pub struct Settings {
-    pub food_spawn_chance: u64,
-    pub minimum_food: u64,
-    pub hazard_damage_per_turn: u64,
-    pub royale: Option<Royale>,
-    pub squad: Option<Squad>,
+    pub food_spawn_chance: Option<u64>,
+    pub minimum_food: Option<u64>,
+    pub hazard_damage_per_turn: Option<u64>,
 }
 
 #[derive(Deserialize, Debug, Clone)]
@@ -74,7 +59,7 @@ pub struct Snake {
     pub name: String,
     pub health: u64,
     pub body: VecDeque<Coord>,
-    pub latency: u64,
+    pub latency: String,
     pub head: Coord,
     pub length: u64,
     pub shout: String,
