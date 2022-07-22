@@ -88,7 +88,7 @@ pub struct Customizations {
 pub struct Snake {
     pub id: String,
     pub name: String,
-    pub health: u64,
+    pub health: i64,
     pub body: VecDeque<Coord>,
     #[serde(deserialize_with = "from_string_or_u64")]
     pub latency: u64,
@@ -97,18 +97,6 @@ pub struct Snake {
     pub shout: String,
     pub squad: String,
     pub customizations: Option<Customizations>,
-}
-
-impl Snake {
-    pub fn facing(&self) -> Option<Direction> {
-        Direction::between(&self.body[1], &self.head)
-    }
-}
-
-impl PartialEq for Snake {
-    fn eq(&self, other: &Self) -> bool {
-        self.id == other.id
-    }
 }
 
 #[derive(Deserialize, Debug, Clone)]
