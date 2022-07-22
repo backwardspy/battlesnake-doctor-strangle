@@ -1,8 +1,39 @@
-use std::collections::VecDeque;
+use std::{collections::VecDeque, fmt};
 
-use serde::{Deserialize, Serialize};
+use serde::{de, Deserialize, Deserializer, Serialize};
 
 use crate::fightsnake::types::{APIVersion, Coord, Direction, Head, Tail};
+
+struct DeserializeU64OrStringVisitor;
+
+impl<'de> de::Visitor<'de> for DeserializeU64OrStringVisitor {
+    type Value = u64;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        formatter.write_str("an integer or string")
+    }
+
+    fn visit_u64<E>(self, v: u64) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        Ok(v)
+    }
+
+    fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        v.parse::<u64>().map_err(E::custom)
+    }
+}
+
+fn from_string_or_u64<'de, D>(deserializer: D) -> Result<u64, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    deserializer.deserialize_any(DeserializeU64OrStringVisitor)
+}
 
 #[derive(Serialize, Debug)]
 pub struct Status {
@@ -59,7 +90,8 @@ pub struct Snake {
     pub name: String,
     pub health: u64,
     pub body: VecDeque<Coord>,
-    pub latency: String,
+    #[serde(deserialize_with = "from_string_or_u64")]
+    pub latency: u64,
     pub head: Coord,
     pub length: u64,
     pub shout: String,
@@ -69,7 +101,7 @@ pub struct Snake {
 
 impl Snake {
     pub fn facing(&self) -> Option<Direction> {
-        Direction::between(&self.body[self.body.len() - 2], &self.head)
+        Direction::between(&self.body[1], &self.head)
     }
 }
 
