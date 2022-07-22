@@ -47,7 +47,7 @@ async fn main() -> Result<()> {
         .and(warp::path("move"))
         .and(warp::body::json())
         .map(|state: GameState| {
-            let movement = StrangleStrategy.get_movement(&state);
+            let movement = StrangleStrategy.get_movement(state);
             warp::reply::json(&Movement {
                 movement,
                 shout: None,
