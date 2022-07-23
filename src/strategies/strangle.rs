@@ -19,7 +19,7 @@ const MAX_HEALTH: i64 = 100;
 const TRACE_SIM: bool = false;
 
 // turns on verbose logging of the bigbrain algorithm.
-const TRACE_BIGBRAIN: bool = true;
+const TRACE_BIGBRAIN: bool = false;
 
 // number of turns to search
 // actual recursion depth will be this * the number of snakes each turn.
