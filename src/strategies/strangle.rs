@@ -23,7 +23,7 @@ const TRACE_BIGBRAIN: bool = true;
 
 // number of turns to search
 // actual recursion depth will be this * the number of snakes each turn.
-const SEARCH_DEPTH: u64 = 1;
+const SEARCH_DEPTH: u64 = 6;
 
 pub struct StrangleStrategy;
 
