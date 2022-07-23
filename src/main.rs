@@ -31,7 +31,7 @@ async fn main() -> Result<()> {
         warp::reply::json(&Status {
             apiversion: APIVersion::One,
             author: AUTHOR.to_owned(),
-            color: "#A18CD1".to_owned(),
+            color: "#AB4377".to_owned(),
             head: Head::TransRightsScarf,
             tail: Tail::MysticMoon,
             version: VERSION.to_owned(),
