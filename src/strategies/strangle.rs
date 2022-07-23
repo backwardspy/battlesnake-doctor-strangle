@@ -19,11 +19,11 @@ const MAX_HEALTH: i64 = 100;
 const TRACE_SIM: bool = false;
 
 // turns on verbose logging of the bigbrain algorithm.
-const TRACE_BIGBRAIN: bool = false;
+const TRACE_BIGBRAIN: bool = true;
 
 // number of turns to search
 // actual recursion depth will be this * the number of snakes each turn.
-const SEARCH_DEPTH: u64 = 6;
+const SEARCH_DEPTH: u64 = 1;
 
 pub struct StrangleStrategy;
 
@@ -35,6 +35,7 @@ const ME: SnakeID = 0;
 struct ScoreFactors {
     snake_id: SnakeID,
     dead: bool,
+    death_kind: DeathKind,
     health: i64,
     closest_food_distance: i64,
     remaining_opponents: i64,
@@ -54,16 +55,18 @@ impl ScoreFactors {
         ScoreFactors {
             snake_id,
             dead: false,
+            death_kind: DeathKind::Normal,
             health,
             closest_food_distance,
             remaining_opponents,
         }
     }
 
-    fn dead(snake_id: SnakeID) -> Self {
+    fn dead(snake_id: SnakeID, death_kind: DeathKind) -> Self {
         Self {
             snake_id,
             dead: true,
+            death_kind,
             health: 0,
             closest_food_distance: 0,
             remaining_opponents: 0,
@@ -72,7 +75,10 @@ impl ScoreFactors {
 
     fn calculate(&self) -> i64 {
         if self.dead {
-            i64::MIN
+            match self.death_kind {
+                DeathKind::Normal => -1000000,
+                DeathKind::HeadToHead => -100000,
+            }
         } else {
             self.health * Self::HEALTH_WEIGHT
                 + self.closest_food_distance * Self::CLOSEST_FOOD_DISTANCE_WEIGHT
@@ -125,6 +131,12 @@ struct Game {
     multisnake: bool,
 }
 
+#[derive(Debug, Clone, Copy)]
+enum DeathKind {
+    Normal,
+    HeadToHead,
+}
+
 impl Snake {
     pub fn facing(&self) -> Option<Direction> {
         Direction::between(&self.body[1], &self.body[0])
@@ -144,7 +156,7 @@ impl Board {
 }
 
 impl Game {
-    fn step(&self, moves: &HashMap<SnakeID, Direction>) -> Game {
+    fn step(&self, moves: &HashMap<SnakeID, Direction>) -> (Game, HashMap<SnakeID, DeathKind>) {
         assert!(moves.len() == self.snakes.len(), "wrong number of moves");
 
         if TRACE_SIM {
@@ -192,11 +204,14 @@ impl Game {
         }
 
         // step 2 - remove eliminated battlesnakes
+        let mut death_kind_map = HashMap::new();
+
         step.snakes.retain(|snake| {
             if snake.health <= 0 {
                 if TRACE_SIM {
                     println!("snake {} dying from {} hp", snake.id, snake.health);
                 }
+                death_kind_map.insert(snake.id, DeathKind::Normal);
                 return false;
             }
 
@@ -207,6 +222,7 @@ impl Game {
                         snake.id, snake.body[0]
                     );
                 }
+                death_kind_map.insert(snake.id, DeathKind::Normal);
                 return false;
             }
 
@@ -217,6 +233,7 @@ impl Game {
                         snake.id, snake.body[0]
                     );
                 }
+                death_kind_map.insert(snake.id, DeathKind::Normal);
                 return false;
             }
 
@@ -231,7 +248,8 @@ impl Game {
             );
         }
 
-        fn get_crashed_snakes(snakes: Vec<Snake>) -> HashSet<usize> {
+        fn get_crashed_snakes(snakes: Vec<Snake>) -> (HashSet<usize>, HashMap<SnakeID, DeathKind>) {
+            let mut death_kind_map = HashMap::new();
             let mut kill = HashSet::new();
             for ((ai, a), (bi, b)) in snakes
                 .iter()
@@ -245,12 +263,14 @@ impl Game {
                     if TRACE_SIM {
                         println!("{} is dying because it hit {}'s body", a.id, b.id);
                     }
+                    death_kind_map.insert(a.id, DeathKind::Normal);
                 }
                 if a.body.iter().skip(1).any(|c| *c == b.body[0]) {
                     kill.insert(bi);
                     if TRACE_SIM {
                         println!("{} is dying because it hit {}'s body'", b.id, a.id);
                     }
+                    death_kind_map.insert(b.id, DeathKind::Normal);
                 }
 
                 // check head-to-head collisions
@@ -258,6 +278,7 @@ impl Game {
                     match (a.body.len() as i64 - b.body.len() as i64).signum() {
                         1 => {
                             kill.insert(bi);
+                            death_kind_map.insert(b.id, DeathKind::HeadToHead);
                             if TRACE_SIM {
                                 println!(
                                     "{} is dying because it hit the longer {} head-on",
@@ -267,6 +288,7 @@ impl Game {
                         }
                         -1 => {
                             kill.insert(ai);
+                            death_kind_map.insert(a.id, DeathKind::HeadToHead);
                             if TRACE_SIM {
                                 println!(
                                     "{} is dying because it hit the longer {} head-on",
@@ -277,6 +299,8 @@ impl Game {
                         _ => {
                             kill.insert(ai);
                             kill.insert(bi);
+                            death_kind_map.insert(a.id, DeathKind::HeadToHead);
+                            death_kind_map.insert(b.id, DeathKind::HeadToHead);
                             if TRACE_SIM {
                                 println!(
                                     "{} and {} are dying because of a same-size head-on collision",
@@ -287,9 +311,11 @@ impl Game {
                     }
                 }
             }
-            kill
+            (kill, death_kind_map)
         }
-        let crashed = get_crashed_snakes(step.snakes.clone());
+        let (crashed, crash_deaths) = get_crashed_snakes(step.snakes.clone());
+        death_kind_map.extend(crash_deaths.into_iter());
+
         let mut keep = (0..step.snakes.len()).map(|i| !crashed.contains(&i));
         step.snakes.retain(|_| keep.next().unwrap());
 
@@ -332,13 +358,13 @@ impl Game {
             println!("[ end of sim ]\n");
         }
 
-        step
+        (step, death_kind_map)
     }
 
-    fn score(&self, snake: &Snake) -> ScoreFactors {
+    fn score(&self, snake: &Snake, death_kind_map: &HashMap<SnakeID, DeathKind>) -> ScoreFactors {
         if !self.snakes.contains(snake) {
             // we really don't want to die
-            return ScoreFactors::dead(snake.id);
+            return ScoreFactors::dead(snake.id, death_kind_map[&snake.id]);
         }
 
         let closest_food_distance = self
@@ -473,7 +499,8 @@ fn bigbrain(
             "wrong number of moves to simulate game"
         );
 
-        game = game.step(&moves);
+        let (new_game, death_kind_map) = game.step(&moves);
+        game = new_game;
         moves.clear();
 
         if TRACE_BIGBRAIN {
@@ -484,13 +511,13 @@ fn bigbrain(
         let mut scores: HashMap<_, _> = game
             .snakes
             .iter()
-            .map(|snake| (snake.id, game.score(snake)))
+            .map(|snake| (snake.id, game.score(snake, &death_kind_map)))
             .collect();
 
         // add bad scores for anyone who died
         for snake in snakes_before {
             if !scores.contains_key(&snake.id) {
-                scores.insert(snake.id, ScoreFactors::dead(snake.id));
+                scores.insert(snake.id, ScoreFactors::dead(snake.id, death_kind_map[&snake.id]));
             }
         }
 
@@ -528,7 +555,7 @@ fn bigbrain(
     let mut best_scores: HashMap<_, _> = game
         .snakes
         .iter()
-        .map(|snake| (snake.id, ScoreFactors::dead(snake.id)))
+        .map(|snake| (snake.id, ScoreFactors::dead(snake.id, DeathKind::Normal)))
         .collect();
     let mut best_direction = Direction::Up;
 
