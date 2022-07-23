@@ -517,7 +517,10 @@ fn bigbrain(
         // add bad scores for anyone who died
         for snake in snakes_before {
             if !scores.contains_key(&snake.id) {
-                scores.insert(snake.id, ScoreFactors::dead(snake.id, death_kind_map[&snake.id]));
+                scores.insert(
+                    snake.id,
+                    ScoreFactors::dead(snake.id, death_kind_map[&snake.id]),
+                );
             }
         }
 
@@ -552,6 +555,7 @@ fn bigbrain(
         }
     }
 
+    let mut has_best_score = false;
     let mut best_scores: HashMap<_, _> = game
         .snakes
         .iter()
@@ -586,13 +590,16 @@ fn bigbrain(
 
         if result.scores.contains_key(&snake_id) {
             // the highest scoring direction for the current snake is propagated
-            if result.scores[&snake_id].calculate() > best_scores[&snake_id].calculate() {
+            if result.scores[&snake_id].calculate() > best_scores[&snake_id].calculate()
+                || !has_best_score
+            {
                 if TRACE_BIGBRAIN {
                     println!("{align}snake {snake_id} seems to do better going {direction} than the previous best of {best_direction}");
                 }
 
                 best_scores = result.scores;
                 best_direction = direction;
+                has_best_score = true;
             }
         } else if TRACE_BIGBRAIN {
             println!("{align}this kills snake {snake_id}. score ignored!")
