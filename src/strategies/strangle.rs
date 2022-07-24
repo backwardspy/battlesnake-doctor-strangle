@@ -31,10 +31,10 @@ fn get_search_depth(game_type: GameType) -> u64 {
 
     #[cfg(not(debug_assertions))]
     match game_type {
-        GameType::Solo => 15,
-        GameType::Duel => 7,
+        GameType::Solo => 14,
+        GameType::Duel => 6,
         GameType::Triple => 3,
-        GameType::Quadruple => 2,
+        GameType::Quadruple => 1,
         GameType::TooMany => 1,
     }
 }
