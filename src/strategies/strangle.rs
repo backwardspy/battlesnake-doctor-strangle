@@ -15,15 +15,39 @@ use super::Strategy;
 
 const MAX_HEALTH: i64 = 100;
 
-// turns on verbose logging of the game simulation step.
-const TRACE_SIM: bool = false;
+enum GameType {
+    Solo,
+    Duel,
+    Triple,
+    Quadruple,
+    TooMany,
+}
 
-// turns on verbose logging of the bigbrain algorithm.
-const TRACE_BIGBRAIN: bool = false;
+fn get_search_depth(game_type: GameType) -> u64 {
+    #[cfg(debug_assertions)]
+    match game_type {
+        _ => 1,
+    }
 
-// number of turns to search
-// actual recursion depth will be this * the number of snakes each turn.
-const SEARCH_DEPTH: u64 = 6;
+    #[cfg(not(debug_assertions))]
+    match game_type {
+        GameType::Solo => 15,
+        GameType::Duel => 7,
+        GameType::Triple => 3,
+        GameType::Quadruple => 2,
+        GameType::TooMany => 1,
+    }
+}
+
+#[cfg(debug_assertions)]
+pub const TRACE_SIM: bool = false;
+#[cfg(debug_assertions)]
+pub const TRACE_BIGBRAIN: bool = true;
+
+#[cfg(not(debug_assertions))]
+pub const TRACE_SIM: bool = false;
+#[cfg(not(debug_assertions))]
+pub const TRACE_BIGBRAIN: bool = false;
 
 pub struct StrangleStrategy;
 
@@ -156,6 +180,17 @@ impl Board {
 }
 
 impl Game {
+    fn game_type(&self) -> GameType {
+        assert!(self.snakes.len() > 0, "no game can have zero snakes");
+        match self.snakes.len() {
+            1 => GameType::Solo,
+            2 => GameType::Duel,
+            3 => GameType::Triple,
+            4 => GameType::Quadruple,
+            _ => GameType::TooMany,
+        }
+    }
+
     fn step(&self, moves: &HashMap<SnakeID, Direction>) -> (Game, HashMap<SnakeID, DeathKind>) {
         assert!(moves.len() == self.snakes.len(), "wrong number of moves");
 
@@ -463,31 +498,31 @@ impl fmt::Display for Indent {
 
 fn bigbrain(
     game: &Game,
-    snake_id: SnakeID,
+    snake_index: usize,
     depth: u64,
+    max_depth: u64,
     moves: &HashMap<SnakeID, Direction>,
 ) -> BigbrainResult {
-    let align = Indent(depth, snake_id as u64);
+    let align = Indent(depth, snake_index as u64);
+    let snake = &game.snakes[snake_index];
 
     if TRACE_BIGBRAIN {
         println!(
             "{align}bigbrain running for snake #{} on depth {}/{} (snakes: {:?}, pending moves: {:?})",
-            snake_id,
+            snake.id,
             depth,
-            SEARCH_DEPTH,
+            max_depth,
             game.snakes.iter().map(|snake| snake.id).join(", "),
             moves
         );
     }
-
-    let snake = &game.snakes[snake_id];
 
     let mut game = game.clone();
     let mut moves = moves.clone();
 
     let snakes_before = game.snakes.clone();
 
-    if snake_id == ME && depth > 0 {
+    if snake.id == ME && depth > 0 {
         if TRACE_BIGBRAIN {
             println!("{align}we've hit a new depth");
         }
@@ -526,7 +561,7 @@ fn bigbrain(
 
         let mut exit = false;
 
-        if !game.snakes.iter().any(|snake| snake.id == snake_id) {
+        if !game.snakes.iter().any(|s| s.id == snake.id) {
             if TRACE_BIGBRAIN {
                 println!("{align}this has killed our snake.");
             }
@@ -540,9 +575,9 @@ fn bigbrain(
             exit = true;
         }
 
-        if depth == SEARCH_DEPTH {
+        if depth == max_depth {
             if TRACE_BIGBRAIN {
-                println!("{align}search depth {SEARCH_DEPTH} reached.");
+                println!("{align}search depth {max_depth} reached.");
             }
             exit = true;
         }
@@ -563,19 +598,19 @@ fn bigbrain(
         .collect();
     let mut best_direction = Direction::Up;
 
-    let next_snake_id = (snake_id + 1) % game.snakes.len();
-    let next_depth = if next_snake_id == ME {
+    let next_snake_index = (snake_index + 1) % game.snakes.len();
+    let next_depth = if next_snake_index == ME {
         depth + 1
     } else {
         depth
     };
     for direction in possible_directions(snake.facing()) {
         if TRACE_BIGBRAIN {
-            println!("{align}snake {snake_id} trying {direction}");
+            println!("{align}snake {} trying {direction}", snake.id);
         }
 
-        moves.insert(snake_id, direction);
-        let result = bigbrain(&game, next_snake_id, next_depth, &moves);
+        moves.insert(snake.id, direction);
+        let result = bigbrain(&game, next_snake_index, next_depth, max_depth, &moves);
 
         if TRACE_BIGBRAIN {
             println!(
@@ -588,13 +623,13 @@ fn bigbrain(
             }
         }
 
-        if result.scores.contains_key(&snake_id) {
+        if result.scores.contains_key(&snake.id) {
             // the highest scoring direction for the current snake is propagated
-            if result.scores[&snake_id].calculate() > best_scores[&snake_id].calculate()
+            if result.scores[&snake.id].calculate() > best_scores[&snake.id].calculate()
                 || !has_best_score
             {
                 if TRACE_BIGBRAIN {
-                    println!("{align}snake {snake_id} seems to do better going {direction} than the previous best of {best_direction}");
+                    println!("{align}snake {} seems to do better going {direction} than the previous best of {best_direction}", snake.id);
                 }
 
                 best_scores = result.scores;
@@ -602,14 +637,14 @@ fn bigbrain(
                 has_best_score = true;
             }
         } else if TRACE_BIGBRAIN {
-            println!("{align}this kills snake {snake_id}. score ignored!")
+            println!("{align}this kills snake {}. score ignored!", snake.id)
         }
     }
 
     if TRACE_BIGBRAIN {
         println!(
-            "{align}snake {snake_id}'s best move at this depth is {best_direction} with a score of {}",
-            best_scores[&snake_id],
+            "{align}snake {}'s best move at this depth is {best_direction} with a score of {}",
+            snake.id, best_scores[&snake.id],
         );
     }
 
@@ -618,9 +653,14 @@ fn bigbrain(
 
 impl Strategy for StrangleStrategy {
     fn get_movement(&self, state: GameState) -> Direction {
-        assert!(SEARCH_DEPTH > 0, "we gotta simulate at least one turn...");
         let game = Game::from(state);
-        let result = bigbrain(&game, ME, 0, &HashMap::new());
+        let max_depth = get_search_depth(game.game_type());
+        println!(
+            "searching {max_depth} moves ahead for {} snakes",
+            game.snakes.len()
+        );
+
+        let result = bigbrain(&game, 0, 0, max_depth, &HashMap::new());
 
         result
             .direction

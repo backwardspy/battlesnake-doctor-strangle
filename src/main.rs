@@ -6,6 +6,7 @@ use fightsnake::{
     models::{GameState, Movement, Status},
     types::{APIVersion, Head, Tail},
 };
+use log::info;
 use warp::http::Method;
 use warp::Filter;
 
@@ -18,6 +19,12 @@ const AUTHOR: &str = env!("CARGO_PKG_AUTHORS");
 #[tokio::main]
 async fn main() -> Result<()> {
     pretty_env_logger::init();
+
+    #[cfg(debug_assertions)]
+    info!("running in debug mode");
+
+    #[cfg(not(debug_assertions))]
+    info!("running in release mode");
 
     let cors = warp::cors()
         .allow_method(Method::GET)
