@@ -699,7 +699,7 @@ fn make_snake(id: SnakeID, board_width: i64, board_height: i64, num_players: u64
 }
 
 fn benchmark_game(num_players: u64, board_width: i64, board_height: i64) -> u64 {
-    const LIMIT: f64 = 400.0; // millis
+    const LIMIT: f64 = 250.0; // millis
     const RUNS: u64 = 10;
 
     let game = Game {
