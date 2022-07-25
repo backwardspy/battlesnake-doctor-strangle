@@ -1,6 +1,7 @@
 use std::{
     collections::{HashMap, HashSet, VecDeque},
     fmt,
+    time::Instant,
 };
 
 use crate::fightsnake::{
@@ -23,22 +24,6 @@ enum GameType {
     TooMany,
 }
 
-fn get_search_depth(game_type: GameType) -> u64 {
-    #[cfg(debug_assertions)]
-    match game_type {
-        _ => 1,
-    }
-
-    #[cfg(not(debug_assertions))]
-    match game_type {
-        GameType::Solo => 14,
-        GameType::Duel => 6,
-        GameType::Triple => 3,
-        GameType::Quadruple => 1,
-        GameType::TooMany => 1,
-    }
-}
-
 #[cfg(debug_assertions)]
 pub const TRACE_SIM: bool = false;
 #[cfg(debug_assertions)]
@@ -48,6 +33,14 @@ pub const TRACE_BIGBRAIN: bool = true;
 pub const TRACE_SIM: bool = false;
 #[cfg(not(debug_assertions))]
 pub const TRACE_BIGBRAIN: bool = false;
+
+pub struct StrangleState {
+    solo_depth: u64,
+    duel_depth: u64,
+    triple_depth: u64,
+    quadruple_depth: u64,
+    too_many_depth: u64,
+}
 
 pub struct StrangleStrategy;
 
@@ -179,7 +172,95 @@ impl Board {
     }
 }
 
+impl fmt::Display for Game {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        for y in (0..self.board.height).rev() {
+            for x in 0..self.board.width {
+                if self
+                    .snakes
+                    .iter()
+                    .any(|snake| snake.body.iter().any(|c| c.x == x && c.y == y))
+                {
+                    write!(f, "#")?;
+                } else {
+                    write!(f, ".")?;
+                }
+            }
+            writeln!(f)?;
+        }
+        Ok(())
+    }
+}
+
 impl Game {
+    fn get_crashed_snakes(
+        snakes: Vec<Snake>,
+        trace_sim: bool,
+    ) -> (HashSet<usize>, HashMap<SnakeID, DeathKind>) {
+        let mut death_kind_map = HashMap::new();
+        let mut kill = HashSet::new();
+        for ((ai, a), (bi, b)) in snakes
+            .iter()
+            .enumerate()
+            .combinations(2)
+            .map(|v| (v[0], v[1]))
+        {
+            // check head-to-body collisions
+            if b.body.iter().skip(1).any(|c| *c == a.body[0]) {
+                kill.insert(ai);
+                if trace_sim {
+                    println!("{} is dying because it hit {}'s body", a.id, b.id);
+                }
+                death_kind_map.insert(a.id, DeathKind::Normal);
+            }
+            if a.body.iter().skip(1).any(|c| *c == b.body[0]) {
+                kill.insert(bi);
+                if trace_sim {
+                    println!("{} is dying because it hit {}'s body'", b.id, a.id);
+                }
+                death_kind_map.insert(b.id, DeathKind::Normal);
+            }
+
+            // check head-to-head collisions
+            if a.body[0] == b.body[0] {
+                match (a.body.len() as i64 - b.body.len() as i64).signum() {
+                    1 => {
+                        kill.insert(bi);
+                        death_kind_map.insert(b.id, DeathKind::HeadToHead);
+                        if trace_sim {
+                            println!(
+                                "{} is dying because it hit the longer {} head-on",
+                                b.id, a.id
+                            );
+                        }
+                    }
+                    -1 => {
+                        kill.insert(ai);
+                        death_kind_map.insert(a.id, DeathKind::HeadToHead);
+                        if trace_sim {
+                            println!(
+                                "{} is dying because it hit the longer {} head-on",
+                                a.id, b.id
+                            );
+                        }
+                    }
+                    _ => {
+                        kill.insert(ai);
+                        kill.insert(bi);
+                        death_kind_map.insert(a.id, DeathKind::HeadToHead);
+                        death_kind_map.insert(b.id, DeathKind::HeadToHead);
+                        if trace_sim {
+                            println!(
+                                "{} and {} are dying because of a same-size head-on collision",
+                                a.id, b.id
+                            );
+                        }
+                    }
+                }
+            }
+        }
+        (kill, death_kind_map)
+    }
     fn game_type(&self) -> GameType {
         assert!(self.snakes.len() > 0, "no game can have zero snakes");
         match self.snakes.len() {
@@ -191,10 +272,14 @@ impl Game {
         }
     }
 
-    fn step(&self, moves: &HashMap<SnakeID, Direction>) -> (Game, HashMap<SnakeID, DeathKind>) {
+    fn step(
+        &self,
+        moves: &HashMap<SnakeID, Direction>,
+        trace_sim: bool,
+    ) -> (Game, HashMap<SnakeID, DeathKind>) {
         assert!(moves.len() == self.snakes.len(), "wrong number of moves");
 
-        if TRACE_SIM {
+        if trace_sim {
             println!("\nseeing what happens with the following moves:");
             for (snake_id, direction) in moves.iter() {
                 println!("   snake #{} moves {}", snake_id, direction);
@@ -203,7 +288,7 @@ impl Game {
 
         let mut step = self.clone();
 
-        if TRACE_SIM {
+        if trace_sim {
             println!(
                 "STEP 0: {} snakes, {} food",
                 step.snakes.len(),
@@ -222,7 +307,7 @@ impl Game {
                 .push_front(snake.body.front().unwrap().neighbour(direction));
             snake.body.pop_back();
             snake.health -= 1;
-            if TRACE_SIM {
+            if trace_sim {
                 println!(
                     "snake {} moving {}, down to {} hp",
                     snake.id, direction, snake.health
@@ -230,7 +315,7 @@ impl Game {
             }
         }
 
-        if TRACE_SIM {
+        if trace_sim {
             println!(
                 "STEP 1: {} snakes, {} food",
                 step.snakes.len(),
@@ -243,7 +328,7 @@ impl Game {
 
         step.snakes.retain(|snake| {
             if snake.health <= 0 {
-                if TRACE_SIM {
+                if trace_sim {
                     println!("snake {} dying from {} hp", snake.id, snake.health);
                 }
                 death_kind_map.insert(snake.id, DeathKind::Normal);
@@ -251,7 +336,7 @@ impl Game {
             }
 
             if !step.board.contains(&snake.body[0]) {
-                if TRACE_SIM {
+                if trace_sim {
                     println!(
                         "snake {} dying because it's gone out of bounds at {}",
                         snake.id, snake.body[0]
@@ -262,7 +347,7 @@ impl Game {
             }
 
             if snake.body.iter().skip(1).any(|c| *c == snake.body[0]) {
-                if TRACE_SIM {
+                if trace_sim {
                     println!(
                         "snake {} dying because it hit its own body at {}",
                         snake.id, snake.body[0]
@@ -275,7 +360,7 @@ impl Game {
             true
         });
 
-        if TRACE_SIM {
+        if trace_sim {
             println!(
                 "STEP 2.1: {} snakes, {} food",
                 step.snakes.len(),
@@ -283,78 +368,13 @@ impl Game {
             );
         }
 
-        fn get_crashed_snakes(snakes: Vec<Snake>) -> (HashSet<usize>, HashMap<SnakeID, DeathKind>) {
-            let mut death_kind_map = HashMap::new();
-            let mut kill = HashSet::new();
-            for ((ai, a), (bi, b)) in snakes
-                .iter()
-                .enumerate()
-                .combinations(2)
-                .map(|v| (v[0], v[1]))
-            {
-                // check head-to-body collisions
-                if b.body.iter().skip(1).any(|c| *c == a.body[0]) {
-                    kill.insert(ai);
-                    if TRACE_SIM {
-                        println!("{} is dying because it hit {}'s body", a.id, b.id);
-                    }
-                    death_kind_map.insert(a.id, DeathKind::Normal);
-                }
-                if a.body.iter().skip(1).any(|c| *c == b.body[0]) {
-                    kill.insert(bi);
-                    if TRACE_SIM {
-                        println!("{} is dying because it hit {}'s body'", b.id, a.id);
-                    }
-                    death_kind_map.insert(b.id, DeathKind::Normal);
-                }
-
-                // check head-to-head collisions
-                if a.body[0] == b.body[0] {
-                    match (a.body.len() as i64 - b.body.len() as i64).signum() {
-                        1 => {
-                            kill.insert(bi);
-                            death_kind_map.insert(b.id, DeathKind::HeadToHead);
-                            if TRACE_SIM {
-                                println!(
-                                    "{} is dying because it hit the longer {} head-on",
-                                    b.id, a.id
-                                );
-                            }
-                        }
-                        -1 => {
-                            kill.insert(ai);
-                            death_kind_map.insert(a.id, DeathKind::HeadToHead);
-                            if TRACE_SIM {
-                                println!(
-                                    "{} is dying because it hit the longer {} head-on",
-                                    a.id, b.id
-                                );
-                            }
-                        }
-                        _ => {
-                            kill.insert(ai);
-                            kill.insert(bi);
-                            death_kind_map.insert(a.id, DeathKind::HeadToHead);
-                            death_kind_map.insert(b.id, DeathKind::HeadToHead);
-                            if TRACE_SIM {
-                                println!(
-                                    "{} and {} are dying because of a same-size head-on collision",
-                                    a.id, b.id
-                                );
-                            }
-                        }
-                    }
-                }
-            }
-            (kill, death_kind_map)
-        }
-        let (crashed, crash_deaths) = get_crashed_snakes(step.snakes.clone());
+        let (crashed, crash_deaths) = Self::get_crashed_snakes(step.snakes.clone(), trace_sim);
         death_kind_map.extend(crash_deaths.into_iter());
 
         let mut keep = (0..step.snakes.len()).map(|i| !crashed.contains(&i));
         step.snakes.retain(|_| keep.next().unwrap());
 
-        if TRACE_SIM {
+        if trace_sim {
             println!(
                 "STEP 2.2: {} snakes, {} food",
                 step.snakes.len(),
@@ -366,7 +386,7 @@ impl Game {
         step.food.retain(|food| {
             for snake in &mut step.snakes {
                 if snake.body[0] == *food {
-                    if TRACE_SIM {
+                    if trace_sim {
                         println!("snake {} eating food at {}", snake.id, food);
                     }
                     snake.health = MAX_HEALTH;
@@ -377,7 +397,7 @@ impl Game {
             true
         });
 
-        if TRACE_SIM {
+        if trace_sim {
             println!(
                 "STEP 3: {} snakes, {} food",
                 step.snakes.len(),
@@ -389,7 +409,7 @@ impl Game {
         // we can't predict this. we assume none will spawn, and if it does then we'll adapt to it
         // on the next real turn.
 
-        if TRACE_SIM {
+        if trace_sim {
             println!("[ end of sim ]\n");
         }
 
@@ -502,11 +522,13 @@ fn bigbrain(
     depth: u64,
     max_depth: u64,
     moves: &HashMap<SnakeID, Direction>,
+    trace: bool,
+    trace_sim: bool,
 ) -> BigbrainResult {
     let align = Indent(depth, snake_index as u64);
     let snake = &game.snakes[snake_index];
 
-    if TRACE_BIGBRAIN {
+    if trace {
         println!(
             "{align}bigbrain running for snake #{} on depth {}/{} (snakes: {:?}, pending moves: {:?})",
             snake.id,
@@ -523,7 +545,7 @@ fn bigbrain(
     let snakes_before = game.snakes.clone();
 
     if snake.id == ME && depth > 0 {
-        if TRACE_BIGBRAIN {
+        if trace {
             println!("{align}we've hit a new depth");
         }
 
@@ -534,11 +556,11 @@ fn bigbrain(
             "wrong number of moves to simulate game"
         );
 
-        let (new_game, death_kind_map) = game.step(&moves);
+        let (new_game, death_kind_map) = game.step(&moves, trace_sim);
         game = new_game;
         moves.clear();
 
-        if TRACE_BIGBRAIN {
+        if trace {
             println!("{align}game stepped and moves cleared.");
         }
 
@@ -562,28 +584,28 @@ fn bigbrain(
         let mut exit = false;
 
         if !game.snakes.iter().any(|s| s.id == snake.id) {
-            if TRACE_BIGBRAIN {
+            if trace {
                 println!("{align}this has killed our snake.");
             }
             exit = true;
         }
 
         if game.multisnake && game.snakes.len() <= 1 {
-            if TRACE_BIGBRAIN {
+            if trace {
                 println!("{align}not enough snakes to continue multisnake game.");
             }
             exit = true;
         }
 
         if depth == max_depth {
-            if TRACE_BIGBRAIN {
+            if trace {
                 println!("{align}search depth {max_depth} reached.");
             }
             exit = true;
         }
 
         if exit {
-            if TRACE_BIGBRAIN {
+            if trace {
                 println!("{align}propagating up!");
             }
             return BigbrainResult::inner(scores);
@@ -605,14 +627,22 @@ fn bigbrain(
         depth
     };
     for direction in possible_directions(snake.facing()) {
-        if TRACE_BIGBRAIN {
+        if trace {
             println!("{align}snake {} trying {direction}", snake.id);
         }
 
         moves.insert(snake.id, direction);
-        let result = bigbrain(&game, next_snake_index, next_depth, max_depth, &moves);
+        let result = bigbrain(
+            &game,
+            next_snake_index,
+            next_depth,
+            max_depth,
+            &moves,
+            trace,
+            trace_sim,
+        );
 
-        if TRACE_BIGBRAIN {
+        if trace {
             println!(
                 "{align}moves {:?} on depth {depth} gets the following scores:",
                 moves
@@ -628,7 +658,7 @@ fn bigbrain(
             if result.scores[&snake.id].calculate() > best_scores[&snake.id].calculate()
                 || !has_best_score
             {
-                if TRACE_BIGBRAIN {
+                if trace {
                     println!("{align}snake {} seems to do better going {direction} than the previous best of {best_direction}", snake.id);
                 }
 
@@ -636,12 +666,12 @@ fn bigbrain(
                 best_direction = direction;
                 has_best_score = true;
             }
-        } else if TRACE_BIGBRAIN {
+        } else if trace {
             println!("{align}this kills snake {}. score ignored!", snake.id)
         }
     }
 
-    if TRACE_BIGBRAIN {
+    if trace {
         println!(
             "{align}snake {}'s best move at this depth is {best_direction} with a score of {}",
             snake.id, best_scores[&snake.id],
@@ -651,16 +681,103 @@ fn bigbrain(
     BigbrainResult::outer(best_scores, best_direction)
 }
 
+fn make_snake(id: SnakeID, board_width: i64, board_height: i64, num_players: u64) -> Snake {
+    let spacing = board_width / num_players as i64;
+    let offset = spacing / 2;
+
+    let xpos = offset + spacing * id as i64;
+
+    let body: VecDeque<_> = (2..board_height - 2)
+        .map(|y| Coord { x: xpos, y })
+        .collect();
+
+    Snake {
+        id,
+        body,
+        health: 100,
+    }
+}
+
+fn benchmark_game(num_players: u64, board_width: i64, board_height: i64) -> u64 {
+    const LIMIT: f64 = 400.0; // millis
+    const RUNS: u64 = 10;
+
+    let game = Game {
+        snakes: (0..num_players)
+            .map(|id| make_snake(id as SnakeID, board_width, board_height, num_players))
+            .collect(),
+        food: vec![],
+        board: Board {
+            width: board_width,
+            height: board_height,
+        },
+        multisnake: num_players > 1,
+    };
+
+    println!("measuring performance for a {num_players} player game with {RUNS} runs per depth...");
+
+    for depth in 1..=20 {
+        let millis = (0..RUNS)
+            .map(|_| {
+                let now = Instant::now();
+                bigbrain(&game, 0, 0, depth, &HashMap::new(), false, false);
+                let elapsed = now.elapsed();
+                elapsed.as_millis() as f64
+            })
+            .sum::<f64>()
+            / RUNS as f64;
+
+        if millis >= LIMIT {
+            let chosen_depth = (depth - 1).max(1);
+            println!("reached the limit of {LIMIT} ms at depth {depth} (took {millis} ms). going with a max depth of {chosen_depth}");
+            return chosen_depth;
+        }
+    }
+
+    println!("we somehow managed all tests without timing out, so going with a max depth of 20.");
+    println!("consider testing even further..?");
+    20
+}
+
 impl Strategy for StrangleStrategy {
-    fn get_movement(&self, state: GameState) -> Direction {
-        let game = Game::from(state);
-        let max_depth = get_search_depth(game.game_type());
+    type State = StrangleState;
+
+    fn get_state(&self) -> Self::State {
+        const BOARD_WIDTH: i64 = 11;
+        const BOARD_HEIGHT: i64 = 11;
+        Self::State {
+            solo_depth: benchmark_game(1, BOARD_WIDTH, BOARD_HEIGHT),
+            duel_depth: benchmark_game(2, BOARD_WIDTH, BOARD_HEIGHT),
+            triple_depth: benchmark_game(3, BOARD_WIDTH, BOARD_HEIGHT),
+            quadruple_depth: benchmark_game(4, BOARD_WIDTH, BOARD_HEIGHT),
+            too_many_depth: 1,
+        }
+    }
+
+    fn get_movement(&self, game_state: GameState, state: &mut Self::State) -> Direction {
+        let game = Game::from(game_state);
+        let max_depth = match game.game_type() {
+            GameType::Solo => state.solo_depth,
+            GameType::Duel => state.duel_depth,
+            GameType::Triple => state.triple_depth,
+            GameType::Quadruple => state.quadruple_depth,
+            GameType::TooMany => state.too_many_depth,
+        };
+
         println!(
             "searching {max_depth} moves ahead for {} snakes",
             game.snakes.len()
         );
 
-        let result = bigbrain(&game, 0, 0, max_depth, &HashMap::new());
+        let result = bigbrain(
+            &game,
+            0,
+            0,
+            max_depth,
+            &HashMap::new(),
+            TRACE_BIGBRAIN,
+            TRACE_SIM,
+        );
 
         result
             .direction
