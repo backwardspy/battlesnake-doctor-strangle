@@ -6,6 +6,7 @@ use std::{
 };
 
 use itertools::Itertools;
+use rand::prelude::SliceRandom;
 #[cfg(not(debug_assertions))]
 use rand::Rng;
 
@@ -620,7 +621,11 @@ fn bigbrain(
         .iter()
         .map(|snake| (snake.id, ScoreFactors::dead(snake.id, depth)))
         .collect();
-    let mut best_direction = Direction::Up;
+
+    let directions = possible_directions(snake.facing());
+    let mut best_direction = *directions
+        .choose(&mut rand::thread_rng())
+        .expect("no directions");
 
     let next_snake_index = (snake_index + 1) % game.snakes.len();
     let next_depth = if next_snake_index == ME {
@@ -628,7 +633,8 @@ fn bigbrain(
     } else {
         depth
     };
-    for direction in possible_directions(snake.facing()) {
+
+    for direction in directions {
         if trace {
             println!("{align}snake {} trying {direction}", snake.id);
         }
