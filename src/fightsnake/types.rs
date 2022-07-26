@@ -107,6 +107,7 @@ impl Coord {
 }
 
 #[derive(Serialize, Debug)]
+#[allow(dead_code)]
 pub enum Head {
     #[serde(rename = "do-sammy")]
     DoSammy,
@@ -221,6 +222,7 @@ pub enum Head {
 }
 
 #[derive(Serialize, Debug)]
+#[allow(dead_code)]
 pub enum Tail {
     #[serde(rename = "do-sammy")]
     DoSammy,
