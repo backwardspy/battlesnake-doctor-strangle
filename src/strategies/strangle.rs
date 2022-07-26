@@ -754,10 +754,10 @@ impl Strategy for StrangleStrategy {
         const BOARD_WIDTH: i64 = 11;
         const BOARD_HEIGHT: i64 = 11;
         Self::State {
-            solo_depth: benchmark_game(1, BOARD_WIDTH, BOARD_HEIGHT),
-            duel_depth: benchmark_game(2, BOARD_WIDTH, BOARD_HEIGHT),
-            triple_depth: benchmark_game(3, BOARD_WIDTH, BOARD_HEIGHT),
-            quadruple_depth: benchmark_game(4, BOARD_WIDTH, BOARD_HEIGHT),
+            solo_depth: benchmark_game(1, BOARD_WIDTH, BOARD_HEIGHT).min(15),
+            duel_depth: benchmark_game(2, BOARD_WIDTH, BOARD_HEIGHT).min(6),
+            triple_depth: benchmark_game(3, BOARD_WIDTH, BOARD_HEIGHT).min(3),
+            quadruple_depth: benchmark_game(4, BOARD_WIDTH, BOARD_HEIGHT).min(2),
             too_many_depth: 1,
         }
     }
