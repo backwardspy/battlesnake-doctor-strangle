@@ -9,10 +9,8 @@ use fightsnake::{
     types::{APIVersion, Head, Tail},
 };
 use log::info;
-use warp::http::Method;
-use warp::Filter;
-
 use strategies::{StrangleStrategy, Strategy};
+use warp::{http::Method, Filter};
 
 const NAME: &str = env!("CARGO_PKG_NAME");
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -43,11 +41,11 @@ async fn main() -> Result<()> {
     let healthz = warp::get().and(warp::path::end().map(|| {
         warp::reply::json(&Status {
             apiversion: APIVersion::One,
-            author: AUTHOR.to_owned(),
-            color: "#AB4377".to_owned(),
-            head: Head::TransRightsScarf,
-            tail: Tail::MysticMoon,
-            version: VERSION.to_owned(),
+            author:     AUTHOR.to_owned(),
+            color:      "#AB4377".to_owned(),
+            head:       Head::TransRightsScarf,
+            tail:       Tail::MysticMoon,
+            version:    VERSION.to_owned(),
         })
     }));
 
@@ -63,7 +61,8 @@ async fn main() -> Result<()> {
             let state = state.clone();
             move |game_state: GameState| {
                 let mut state = state.lock().unwrap();
-                let movement = StrangleStrategy.get_movement(game_state, &mut state);
+                let movement =
+                    StrangleStrategy.get_movement(game_state, &mut state);
                 warp::reply::json(&Movement {
                     movement,
                     shout: None,

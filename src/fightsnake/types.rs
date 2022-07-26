@@ -40,7 +40,8 @@ impl Direction {
     pub fn between(from: &Coord, to: &Coord) -> Option<Direction> {
         // gets the most significant direction between two coordinates.
         // if the coordinates are the same, assumes up.
-        // if the coordinates are exactly diagonal, gives the vertical direction priority.
+        // if the coordinates are exactly diagonal, gives the vertical direction
+        // priority.
         let dx = to.x - from.x;
         let dy = to.y - from.y;
         if dx.abs() > dy.abs() {

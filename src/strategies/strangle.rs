@@ -4,16 +4,15 @@ use std::{
     time::Instant,
 };
 
+use itertools::Itertools;
+use rand::Rng;
+
+use super::Strategy;
 use crate::fightsnake::{
     models::GameState,
     types::{Coord, Direction},
     utils::manhattan_distance,
 };
-
-use itertools::Itertools;
-use rand::Rng;
-
-use super::Strategy;
 
 const MAX_HEALTH: i64 = 100;
 
@@ -36,11 +35,11 @@ pub const TRACE_SIM: bool = false;
 pub const TRACE_BIGBRAIN: bool = false;
 
 pub struct StrangleState {
-    solo_depth: u64,
-    duel_depth: u64,
-    triple_depth: u64,
+    solo_depth:      u64,
+    duel_depth:      u64,
+    triple_depth:    u64,
     quadruple_depth: u64,
-    too_many_depth: u64,
+    too_many_depth:  u64,
 }
 
 pub struct StrangleStrategy;
@@ -51,17 +50,17 @@ const ME: SnakeID = 0;
 
 #[derive(Debug)]
 struct ScoreFactors {
-    snake_id: SnakeID,
-    dead: bool,
-    death_kind: DeathKind,
-    health: i64,
+    snake_id:              SnakeID,
+    dead:                  bool,
+    death_kind:            DeathKind,
+    health:                i64,
     closest_food_distance: i64,
-    remaining_opponents: i64,
+    remaining_opponents:   i64,
 }
 
 impl ScoreFactors {
-    const HEALTH_WEIGHT: i64 = 100;
     const CLOSEST_FOOD_DISTANCE_WEIGHT: i64 = -10;
+    const HEALTH_WEIGHT: i64 = 100;
     const REMAINING_OPPONENTS_WEIGHT: i64 = -1000;
 
     fn alive(
@@ -99,7 +98,8 @@ impl ScoreFactors {
             }
         } else {
             self.health * Self::HEALTH_WEIGHT
-                + self.closest_food_distance * Self::CLOSEST_FOOD_DISTANCE_WEIGHT
+                + self.closest_food_distance
+                    * Self::CLOSEST_FOOD_DISTANCE_WEIGHT
                 + self.remaining_opponents * Self::REMAINING_OPPONENTS_WEIGHT
         }
     }
@@ -117,7 +117,8 @@ impl fmt::Display for ScoreFactors {
         } else {
             write!(
                 f,
-                "{} (snake {} @ {} health, {} turns to nearest food, {} remaining opponents)",
+                "{} (snake {} @ {} health, {} turns to nearest food, {} \
+                 remaining opponents)",
                 self.calculate(),
                 self.snake_id,
                 self.health,
@@ -130,22 +131,22 @@ impl fmt::Display for ScoreFactors {
 
 #[derive(Clone, Debug)]
 struct Snake {
-    id: SnakeID,
-    body: VecDeque<Coord>,
+    id:     SnakeID,
+    body:   VecDeque<Coord>,
     health: i64,
 }
 
 #[derive(Clone, Debug)]
 struct Board {
-    width: i64,
+    width:  i64,
     height: i64,
 }
 
 #[derive(Clone, Debug)]
 struct Game {
-    snakes: Vec<Snake>,
-    food: Vec<Coord>,
-    board: Board,
+    snakes:     Vec<Snake>,
+    food:       Vec<Coord>,
+    board:      Board,
     multisnake: bool,
 }
 
@@ -169,7 +170,10 @@ impl PartialEq for Snake {
 
 impl Board {
     fn contains(&self, coord: &Coord) -> bool {
-        coord.x >= 0 && coord.y >= 0 && coord.x < self.width && coord.y < self.height
+        coord.x >= 0
+            && coord.y >= 0
+            && coord.x < self.width
+            && coord.y < self.height
     }
 }
 
@@ -177,11 +181,9 @@ impl fmt::Display for Game {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         for y in (0..self.board.height).rev() {
             for x in 0..self.board.width {
-                if self
-                    .snakes
-                    .iter()
-                    .any(|snake| snake.body.iter().any(|c| c.x == x && c.y == y))
-                {
+                if self.snakes.iter().any(|snake| {
+                    snake.body.iter().any(|c| c.x == x && c.y == y)
+                }) {
                     write!(f, "#")?;
                 } else {
                     write!(f, ".")?;
@@ -210,14 +212,20 @@ impl Game {
             if b.body.iter().skip(1).any(|c| *c == a.body[0]) {
                 kill.insert(ai);
                 if trace_sim {
-                    println!("{} is dying because it hit {}'s body", a.id, b.id);
+                    println!(
+                        "{} is dying because it hit {}'s body",
+                        a.id, b.id
+                    );
                 }
                 death_kind_map.insert(a.id, DeathKind::Normal);
             }
             if a.body.iter().skip(1).any(|c| *c == b.body[0]) {
                 kill.insert(bi);
                 if trace_sim {
-                    println!("{} is dying because it hit {}'s body'", b.id, a.id);
+                    println!(
+                        "{} is dying because it hit {}'s body'",
+                        b.id, a.id
+                    );
                 }
                 death_kind_map.insert(b.id, DeathKind::Normal);
             }
@@ -230,21 +238,23 @@ impl Game {
                         death_kind_map.insert(b.id, DeathKind::HeadToHead);
                         if trace_sim {
                             println!(
-                                "{} is dying because it hit the longer {} head-on",
+                                "{} is dying because it hit the longer {} \
+                                 head-on",
                                 b.id, a.id
                             );
                         }
-                    }
+                    },
                     -1 => {
                         kill.insert(ai);
                         death_kind_map.insert(a.id, DeathKind::HeadToHead);
                         if trace_sim {
                             println!(
-                                "{} is dying because it hit the longer {} head-on",
+                                "{} is dying because it hit the longer {} \
+                                 head-on",
                                 a.id, b.id
                             );
                         }
-                    }
+                    },
                     _ => {
                         kill.insert(ai);
                         kill.insert(bi);
@@ -252,16 +262,18 @@ impl Game {
                         death_kind_map.insert(b.id, DeathKind::HeadToHead);
                         if trace_sim {
                             println!(
-                                "{} and {} are dying because of a same-size head-on collision",
+                                "{} and {} are dying because of a same-size \
+                                 head-on collision",
                                 a.id, b.id
                             );
                         }
-                    }
+                    },
                 }
             }
         }
         (kill, death_kind_map)
     }
+
     fn game_type(&self) -> GameType {
         assert!(self.snakes.len() > 0, "no game can have zero snakes");
         match self.snakes.len() {
@@ -330,7 +342,10 @@ impl Game {
         step.snakes.retain(|snake| {
             if snake.health <= 0 {
                 if trace_sim {
-                    println!("snake {} dying from {} hp", snake.id, snake.health);
+                    println!(
+                        "snake {} dying from {} hp",
+                        snake.id, snake.health
+                    );
                 }
                 death_kind_map.insert(snake.id, DeathKind::Normal);
                 return false;
@@ -369,7 +384,8 @@ impl Game {
             );
         }
 
-        let (crashed, crash_deaths) = Self::get_crashed_snakes(step.snakes.clone(), trace_sim);
+        let (crashed, crash_deaths) =
+            Self::get_crashed_snakes(step.snakes.clone(), trace_sim);
         death_kind_map.extend(crash_deaths.into_iter());
 
         let mut keep = (0..step.snakes.len()).map(|i| !crashed.contains(&i));
@@ -407,8 +423,8 @@ impl Game {
         }
 
         // step 4 - spawn new food
-        // we can't predict this. we assume none will spawn, and if it does then we'll adapt to it
-        // on the next real turn.
+        // we can't predict this. we assume none will spawn, and if it does then
+        // we'll adapt to it on the next real turn.
 
         if trace_sim {
             println!("[ end of sim ]\n");
@@ -417,7 +433,11 @@ impl Game {
         (step, death_kind_map)
     }
 
-    fn score(&self, snake: &Snake, death_kind_map: &HashMap<SnakeID, DeathKind>) -> ScoreFactors {
+    fn score(
+        &self,
+        snake: &Snake,
+        death_kind_map: &HashMap<SnakeID, DeathKind>,
+    ) -> ScoreFactors {
         if !self.snakes.contains(snake) {
             // we really don't want to die
             return ScoreFactors::dead(snake.id, death_kind_map[&snake.id]);
@@ -466,7 +486,7 @@ impl From<GameState> for Game {
                 .collect(),
             food: state.board.food,
             board: Board {
-                width: state.board.width,
+                width:  state.board.width,
                 height: state.board.height,
             },
             multisnake,
@@ -487,7 +507,7 @@ fn possible_directions(facing: Option<Direction>) -> Vec<Direction> {
 type BigbrainScores = HashMap<SnakeID, ScoreFactors>;
 
 struct BigbrainResult {
-    scores: BigbrainScores,
+    scores:    BigbrainScores,
     direction: Option<Direction>,
 }
 
@@ -531,7 +551,8 @@ fn bigbrain(
 
     if trace {
         println!(
-            "{align}bigbrain running for snake #{} on depth {}/{} (snakes: {:?}, pending moves: {:?})",
+            "{align}bigbrain running for snake #{} on depth {}/{} (snakes: \
+             {:?}, pending moves: {:?})",
             snake.id,
             depth,
             max_depth,
@@ -551,7 +572,9 @@ fn bigbrain(
         }
 
         // remove moves for dead snakes
-        moves.retain(|snake_id, _| game.snakes.iter().any(|snake| snake.id == *snake_id));
+        moves.retain(|snake_id, _| {
+            game.snakes.iter().any(|snake| snake.id == *snake_id)
+        });
         assert!(
             moves.len() == game.snakes.len(),
             "wrong number of moves to simulate game"
@@ -593,7 +616,9 @@ fn bigbrain(
 
         if game.multisnake && game.snakes.len() <= 1 {
             if trace {
-                println!("{align}not enough snakes to continue multisnake game.");
+                println!(
+                    "{align}not enough snakes to continue multisnake game."
+                );
             }
             exit = true;
         }
@@ -617,7 +642,9 @@ fn bigbrain(
     let mut best_scores: HashMap<_, _> = game
         .snakes
         .iter()
-        .map(|snake| (snake.id, ScoreFactors::dead(snake.id, DeathKind::Normal)))
+        .map(|snake| {
+            (snake.id, ScoreFactors::dead(snake.id, DeathKind::Normal))
+        })
         .collect();
     let mut best_direction = Direction::Up;
 
@@ -656,11 +683,16 @@ fn bigbrain(
 
         if result.scores.contains_key(&snake.id) {
             // the highest scoring direction for the current snake is propagated
-            if result.scores[&snake.id].calculate() > best_scores[&snake.id].calculate()
+            if result.scores[&snake.id].calculate()
+                > best_scores[&snake.id].calculate()
                 || !has_best_score
             {
                 if trace {
-                    println!("{align}snake {} seems to do better going {direction} than the previous best of {best_direction}", snake.id);
+                    println!(
+                        "{align}snake {} seems to do better going {direction} \
+                         than the previous best of {best_direction}",
+                        snake.id
+                    );
                 }
 
                 best_scores = result.scores;
@@ -674,7 +706,8 @@ fn bigbrain(
 
     if trace {
         println!(
-            "{align}snake {}'s best move at this depth is {best_direction} with a score of {}",
+            "{align}snake {}'s best move at this depth is {best_direction} \
+             with a score of {}",
             snake.id, best_scores[&snake.id],
         );
     }
@@ -682,7 +715,12 @@ fn bigbrain(
     BigbrainResult::outer(best_scores, best_direction)
 }
 
-fn make_snake(id: SnakeID, board_width: i64, board_height: i64, num_players: u64) -> Snake {
+fn make_snake(
+    id: SnakeID,
+    board_width: i64,
+    board_height: i64,
+    num_players: u64,
+) -> Snake {
     let spacing = board_width / num_players as i64;
     let offset = spacing / 2;
 
@@ -699,30 +737,44 @@ fn make_snake(id: SnakeID, board_width: i64, board_height: i64, num_players: u64
     }
 }
 
-fn benchmark_game(num_players: u64, board_width: i64, board_height: i64) -> u64 {
+fn benchmark_game(
+    num_players: u64,
+    board_width: i64,
+    board_height: i64,
+) -> u64 {
     const LIMIT: f64 = 250.0; // millis
     const RUNS: u64 = 15;
 
     let mut rng = rand::thread_rng();
 
     let game = Game {
-        snakes: (0..num_players)
-            .map(|id| make_snake(id as SnakeID, board_width, board_height, num_players))
+        snakes:     (0..num_players)
+            .map(|id| {
+                make_snake(
+                    id as SnakeID,
+                    board_width,
+                    board_height,
+                    num_players,
+                )
+            })
             .collect(),
-        food: (5..rng.gen_range(0..10))
+        food:       (5..rng.gen_range(0..10))
             .map(|_| Coord {
                 x: rng.gen_range(0..board_width),
                 y: rng.gen_range(0..board_height),
             })
             .collect(),
-        board: Board {
-            width: board_width,
+        board:      Board {
+            width:  board_width,
             height: board_height,
         },
         multisnake: num_players > 1,
     };
 
-    println!("measuring performance for a {num_players} player game with {RUNS} runs per depth...");
+    println!(
+        "measuring performance for a {num_players} player game with {RUNS} \
+         runs per depth..."
+    );
 
     for depth in 1..=20 {
         let millis = (0..RUNS)
@@ -737,12 +789,18 @@ fn benchmark_game(num_players: u64, board_width: i64, board_height: i64) -> u64 
 
         if millis >= LIMIT {
             let chosen_depth = (depth - 1).max(1);
-            println!("reached the limit of {LIMIT} ms at depth {depth} (took {millis} ms). going with a max depth of {chosen_depth}");
+            println!(
+                "reached the limit of {LIMIT} ms at depth {depth} (took \
+                 {millis} ms). going with a max depth of {chosen_depth}"
+            );
             return chosen_depth;
         }
     }
 
-    println!("we somehow managed all tests without timing out, so going with a max depth of 20.");
+    println!(
+        "we somehow managed all tests without timing out, so going with a max \
+         depth of 20."
+    );
     println!("consider testing even further..?");
     20
 }
@@ -754,15 +812,23 @@ impl Strategy for StrangleStrategy {
         const BOARD_WIDTH: i64 = 11;
         const BOARD_HEIGHT: i64 = 11;
         Self::State {
-            solo_depth: benchmark_game(1, BOARD_WIDTH, BOARD_HEIGHT).min(15),
-            duel_depth: benchmark_game(2, BOARD_WIDTH, BOARD_HEIGHT).min(6),
-            triple_depth: benchmark_game(3, BOARD_WIDTH, BOARD_HEIGHT).min(3),
-            quadruple_depth: benchmark_game(4, BOARD_WIDTH, BOARD_HEIGHT).min(2),
-            too_many_depth: 1,
+            solo_depth:      benchmark_game(1, BOARD_WIDTH, BOARD_HEIGHT)
+                .min(15),
+            duel_depth:      benchmark_game(2, BOARD_WIDTH, BOARD_HEIGHT)
+                .min(6),
+            triple_depth:    benchmark_game(3, BOARD_WIDTH, BOARD_HEIGHT)
+                .min(3),
+            quadruple_depth: benchmark_game(4, BOARD_WIDTH, BOARD_HEIGHT)
+                .min(2),
+            too_many_depth:  1,
         }
     }
 
-    fn get_movement(&self, game_state: GameState, state: &mut Self::State) -> Direction {
+    fn get_movement(
+        &self,
+        game_state: GameState,
+        state: &mut Self::State,
+    ) -> Direction {
         let game = Game::from(game_state);
         let max_depth = match game.game_type() {
             GameType::Solo => state.solo_depth,
