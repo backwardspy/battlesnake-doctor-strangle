@@ -11,6 +11,7 @@ use crate::fightsnake::{
 };
 
 use itertools::Itertools;
+use rand::Rng;
 
 use super::Strategy;
 
@@ -700,13 +701,20 @@ fn make_snake(id: SnakeID, board_width: i64, board_height: i64, num_players: u64
 
 fn benchmark_game(num_players: u64, board_width: i64, board_height: i64) -> u64 {
     const LIMIT: f64 = 250.0; // millis
-    const RUNS: u64 = 10;
+    const RUNS: u64 = 15;
+
+    let mut rng = rand::thread_rng();
 
     let game = Game {
         snakes: (0..num_players)
             .map(|id| make_snake(id as SnakeID, board_width, board_height, num_players))
             .collect(),
-        food: vec![],
+        food: (5..rng.gen_range(0..10))
+            .map(|_| Coord {
+                x: rng.gen_range(0..board_width),
+                y: rng.gen_range(0..board_height),
+            })
+            .collect(),
         board: Board {
             width: board_width,
             height: board_height,
