@@ -1,10 +1,12 @@
+#[cfg(not(debug_assertions))]
+use std::time::Instant;
 use std::{
     collections::{hash_map::Entry, HashMap, HashSet, VecDeque},
     fmt,
-    time::Instant,
 };
 
 use itertools::Itertools;
+#[cfg(not(debug_assertions))]
 use rand::Rng;
 
 use super::Strategy;
@@ -55,18 +57,21 @@ struct ScoreFactors {
     health:                i64,
     closest_food_distance: i64,
     remaining_opponents:   i64,
+    depth:                 u64,
 }
 
 impl ScoreFactors {
     const CLOSEST_FOOD_DISTANCE_WEIGHT: i64 = -10;
+    const DEPTH_WEIGHT: i64 = 1000;
     const HEALTH_WEIGHT: i64 = 100;
-    const REMAINING_OPPONENTS_WEIGHT: i64 = -1000;
+    const REMAINING_OPPONENTS_WEIGHT: i64 = -10000;
 
     fn alive(
         snake_id: SnakeID,
         health: i64,
         closest_food_distance: i64,
         remaining_opponents: i64,
+        depth: u64,
     ) -> ScoreFactors {
         ScoreFactors {
             snake_id,
@@ -74,27 +79,30 @@ impl ScoreFactors {
             health,
             closest_food_distance,
             remaining_opponents,
+            depth,
         }
     }
 
-    fn dead(snake_id: SnakeID) -> Self {
+    fn dead(snake_id: SnakeID, depth: u64) -> Self {
         Self {
             snake_id,
             dead: true,
             health: 0,
             closest_food_distance: 0,
             remaining_opponents: 0,
+            depth,
         }
     }
 
     fn calculate(&self) -> i64 {
         if self.dead {
-            -1000000
+            -1000000 + self.depth as i64 * Self::DEPTH_WEIGHT
         } else {
             self.health * Self::HEALTH_WEIGHT
                 + self.closest_food_distance
                     * Self::CLOSEST_FOOD_DISTANCE_WEIGHT
                 + self.remaining_opponents * Self::REMAINING_OPPONENTS_WEIGHT
+                + self.depth as i64 * Self::DEPTH_WEIGHT
         }
     }
 }
@@ -407,10 +415,10 @@ impl Game {
         step
     }
 
-    fn score(&self, snake: &Snake) -> ScoreFactors {
+    fn score(&self, snake: &Snake, depth: u64) -> ScoreFactors {
         if !self.snakes.contains(snake) {
             // we really don't want to die
-            return ScoreFactors::dead(snake.id);
+            return ScoreFactors::dead(snake.id, depth);
         }
 
         let closest_food_distance = self
@@ -425,6 +433,7 @@ impl Game {
             snake.health,
             closest_food_distance,
             self.snakes.len() as i64 - 1,
+            depth,
         )
     }
 }
@@ -562,13 +571,13 @@ fn bigbrain(
         let mut scores: HashMap<_, _> = game
             .snakes
             .iter()
-            .map(|snake| (snake.id, game.score(snake)))
+            .map(|snake| (snake.id, game.score(snake, depth)))
             .collect();
 
         // add bad scores for anyone who died
         for snake in snakes_before {
             if let Entry::Vacant(e) = scores.entry(snake.id) {
-                e.insert(ScoreFactors::dead(snake.id));
+                e.insert(ScoreFactors::dead(snake.id, depth));
             }
         }
 
@@ -609,7 +618,7 @@ fn bigbrain(
     let mut best_scores: HashMap<_, _> = game
         .snakes
         .iter()
-        .map(|snake| (snake.id, ScoreFactors::dead(snake.id)))
+        .map(|snake| (snake.id, ScoreFactors::dead(snake.id, depth)))
         .collect();
     let mut best_direction = Direction::Up;
 
@@ -680,6 +689,7 @@ fn bigbrain(
     BigbrainResult::outer(best_scores, best_direction)
 }
 
+#[cfg(not(debug_assertions))]
 fn make_snake(
     id: SnakeID,
     board_width: i64,
@@ -702,6 +712,7 @@ fn make_snake(
     }
 }
 
+#[cfg(not(debug_assertions))]
 fn benchmark_game(
     num_players: u64,
     board_width: i64,
@@ -773,6 +784,18 @@ fn benchmark_game(
 impl Strategy for StrangleStrategy {
     type State = StrangleState;
 
+    #[cfg(debug_assertions)]
+    fn get_state(&self) -> Self::State {
+        Self::State {
+            solo_depth:      3,
+            duel_depth:      2,
+            triple_depth:    1,
+            quadruple_depth: 1,
+            too_many_depth:  1,
+        }
+    }
+
+    #[cfg(not(debug_assertions))]
     fn get_state(&self) -> Self::State {
         const BOARD_WIDTH: i64 = 11;
         const BOARD_HEIGHT: i64 = 11;
