@@ -8,7 +8,7 @@ pub enum APIVersion {
     One,
 }
 
-#[derive(Serialize, Debug, Copy, Clone, PartialEq)]
+#[derive(Serialize, Debug, Copy, Clone, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum Direction {
     Left,
@@ -75,7 +75,7 @@ impl fmt::Display for Direction {
     }
 }
 
-#[derive(Deserialize, Debug, PartialEq, Clone, Copy)]
+#[derive(Deserialize, Debug, PartialEq, Eq, Clone, Copy)]
 pub struct Coord {
     pub x: i64,
     pub y: i64,

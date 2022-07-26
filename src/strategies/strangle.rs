@@ -1,5 +1,5 @@
 use std::{
-    collections::{HashMap, HashSet, VecDeque},
+    collections::{hash_map::Entry, HashMap, HashSet, VecDeque},
     fmt,
     time::Instant,
 };
@@ -256,7 +256,7 @@ impl Game {
     }
 
     fn game_type(&self) -> GameType {
-        assert!(self.snakes.len() > 0, "no game can have zero snakes");
+        assert!(!self.snakes.is_empty(), "no game can have zero snakes");
         match self.snakes.len() {
             1 => GameType::Solo,
             2 => GameType::Duel,
@@ -292,9 +292,9 @@ impl Game {
 
         // step 1 - move snakes
         for snake in &mut step.snakes {
-            let direction = *moves
-                .get(&snake.id)
-                .expect(&format!("snake #{} didn't provide a move", snake.id));
+            let direction = *moves.get(&snake.id).unwrap_or_else(|| {
+                panic!("snake #{} didn't provide a move", snake.id)
+            });
 
             snake
                 .body
@@ -567,8 +567,8 @@ fn bigbrain(
 
         // add bad scores for anyone who died
         for snake in snakes_before {
-            if !scores.contains_key(&snake.id) {
-                scores.insert(snake.id, ScoreFactors::dead(snake.id));
+            if let Entry::Vacant(e) = scores.entry(snake.id) {
+                e.insert(ScoreFactors::dead(snake.id));
             }
         }
 
