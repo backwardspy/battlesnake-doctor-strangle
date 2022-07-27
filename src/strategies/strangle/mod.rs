@@ -17,15 +17,7 @@ use crate::{
     strategies::strangle::{brain::bigbrain, game::GameType},
 };
 
-#[cfg(debug_assertions)]
-pub const TRACE_SIM: bool = false;
-#[cfg(debug_assertions)]
-pub const TRACE_BIGBRAIN: bool = true;
-
-#[cfg(not(debug_assertions))]
-pub const TRACE_SIM: bool = false;
-#[cfg(not(debug_assertions))]
-pub const TRACE_BIGBRAIN: bool = false;
+pub const TRACE_SIM: bool = cfg!(debug_assertions);
 
 pub struct StrangleState {
     solo_depth:      u64,
@@ -48,7 +40,7 @@ impl Strategy for StrangleStrategy {
         Self::State {
             solo_depth:      3,
             duel_depth:      2,
-            triple_depth:    1,
+            triple_depth:    2,
             quadruple_depth: 1,
             too_many_depth:  1,
         }
@@ -96,7 +88,6 @@ impl Strategy for StrangleStrategy {
             0,
             max_depth,
             &HashMap::new(),
-            TRACE_BIGBRAIN,
             TRACE_SIM,
         );
 

@@ -76,7 +76,7 @@ pub fn benchmark_game(
         let millis = (0..RUNS)
             .map(|_| {
                 let now = Instant::now();
-                bigbrain(&game, 0, 0, depth, &HashMap::new(), false, false);
+                bigbrain(&game, 0, 0, depth, &HashMap::new(), false);
                 now.elapsed().as_millis() as f64
             })
             .sum::<f64>()
