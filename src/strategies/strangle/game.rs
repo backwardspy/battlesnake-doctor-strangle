@@ -143,6 +143,37 @@ impl Game {
             true
         });
 
+        // step 2a resolve head-to-head collisions
+        let mut keep = vec![true; step.snakes.len()];
+        for (i, a) in step.snakes.iter().enumerate() {
+            for b in &step.snakes[i + 1..] {
+                if a.body[0] == b.body[0] {
+                    if b.body.len() >= a.body.len() {
+                        if trace_sim {
+                            println!(
+                                "snake {} dying due to head-on collision with \
+                                 snake {}",
+                                a.id, b.id
+                            );
+                        }
+                        keep[i] = false;
+                    }
+                    if a.body.len() >= b.body.len() {
+                        if trace_sim {
+                            println!(
+                                "snake {} dying due to head-on collision with \
+                                 snake {}",
+                                b.id, a.id
+                            );
+                        }
+                        keep[i + 1] = false;
+                    }
+                }
+            }
+        }
+        let mut kill_iter = keep.iter();
+        step.snakes.retain(|_| *kill_iter.next().unwrap());
+
         if trace_sim {
             println!(
                 "STEP 2.1: {} snakes, {} food",
@@ -216,7 +247,7 @@ impl Game {
             .snakes
             .iter()
             .filter(|other| {
-                other.id != ME && other.body.len() >= snake.body.len()
+                other.id != snake.id && other.body.len() >= snake.body.len()
             })
             .map(|other| manhattan_distance(head, other.body[0]))
             .min()

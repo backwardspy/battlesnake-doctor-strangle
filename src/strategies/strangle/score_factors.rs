@@ -15,11 +15,11 @@ pub struct ScoreFactors {
 
 impl ScoreFactors {
     const CLOSEST_FOOD_WEIGHT: i64 = -100;
-    const CLOSEST_LARGER_SNAKE_MAX: i64 = 3;
-    const CLOSEST_LARGER_SNAKE_WEIGHT: i64 = 1500;
+    const LARGE_SNAKE_DISTANCE_MAX: i64 = 3;
+    const LARGE_SNAKE_DISTANCE_WEIGHT: i64 = 10000;
     const DEPTH_WEIGHT: i64 = 1000;
     const HEALTH_WEIGHT: i64 = 100;
-    const REMAINING_OPPONENTS_WEIGHT: i64 = -10000;
+    const REMAINING_OPPONENTS_WEIGHT: i64 = -100000;
 
     pub fn alive(
         snake_id: SnakeID,
@@ -60,8 +60,8 @@ impl ScoreFactors {
                 + self.closest_food * Self::CLOSEST_FOOD_WEIGHT
                 + self
                     .closest_larger_snake
-                    .min(Self::CLOSEST_LARGER_SNAKE_MAX)
-                    * Self::CLOSEST_LARGER_SNAKE_WEIGHT
+                    .min(Self::LARGE_SNAKE_DISTANCE_MAX)
+                    * Self::LARGE_SNAKE_DISTANCE_WEIGHT
                 + self.remaining_opponents * Self::REMAINING_OPPONENTS_WEIGHT
                 + self.depth as i64 * Self::DEPTH_WEIGHT
         }
@@ -90,7 +90,7 @@ impl fmt::Display for ScoreFactors {
                 self.health,
                 self.closest_food,
                 self.closest_larger_snake,
-                Self::CLOSEST_LARGER_SNAKE_MAX,
+                Self::LARGE_SNAKE_DISTANCE_MAX,
                 self.remaining_opponents
             )
         }

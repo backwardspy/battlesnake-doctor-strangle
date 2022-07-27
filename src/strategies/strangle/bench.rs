@@ -86,7 +86,7 @@ pub fn benchmark_game(
             let chosen_depth = (depth - 1).max(1);
             println!(
                 "reached the limit of {LIMIT_MEAN} ms at depth {depth} (took \
-                 {millis} ms). going with a max depth of {chosen_depth}"
+                 {millis:.2} ms). going with a max depth of {chosen_depth}"
             );
             return chosen_depth;
         }

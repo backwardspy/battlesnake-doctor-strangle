@@ -17,7 +17,7 @@ use crate::{
     strategies::strangle::{brain::bigbrain, game::GameType},
 };
 
-pub const TRACE_SIM: bool = cfg!(debug_assertions);
+pub const TRACE_SIM: bool = false;
 
 pub struct StrangleState {
     solo_depth:      u64,
