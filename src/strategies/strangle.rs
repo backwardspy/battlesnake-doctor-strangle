@@ -55,22 +55,22 @@ const ME: SnakeID = 0;
 struct ScoreFactors {
     snake_id:             SnakeID,
     dead:                 bool,
-    health:               i64,
+    closest_food:         i64,
     closest_larger_snake: i64,
     remaining_opponents:  i64,
     depth:                i64,
 }
 
 impl ScoreFactors {
+    const CLOSEST_FOOD_WEIGHT: i64 = -100;
     const CLOSEST_LARGER_SNAKE_MAX: i64 = 3;
     const CLOSEST_LARGER_SNAKE_WEIGHT: i64 = 1500;
     const DEPTH_WEIGHT: i64 = 1000;
-    const HEALTH_WEIGHT: i64 = 100;
     const REMAINING_OPPONENTS_WEIGHT: i64 = -10000;
 
     fn alive(
         snake_id: SnakeID,
-        health: i64,
+        closest_food: i64,
         closest_larger_snake: i64,
         remaining_opponents: i64,
         depth: u64,
@@ -78,7 +78,7 @@ impl ScoreFactors {
         ScoreFactors {
             snake_id,
             dead: false,
-            health,
+            closest_food,
             closest_larger_snake,
             remaining_opponents,
             depth: depth as i64,
@@ -89,7 +89,7 @@ impl ScoreFactors {
         Self {
             snake_id,
             dead: true,
-            health: 0,
+            closest_food: 0,
             closest_larger_snake: 0,
             remaining_opponents: 0,
             depth: depth as i64,
@@ -100,7 +100,7 @@ impl ScoreFactors {
         if self.dead {
             -1000000 + self.depth as i64 * Self::DEPTH_WEIGHT
         } else {
-            self.health * Self::HEALTH_WEIGHT
+            self.closest_food * Self::CLOSEST_FOOD_WEIGHT
                 + self
                     .closest_larger_snake
                     .min(Self::CLOSEST_LARGER_SNAKE_MAX)
@@ -123,11 +123,11 @@ impl fmt::Display for ScoreFactors {
         } else {
             write!(
                 f,
-                "{} (snake {} @ {} health, {} turns from nearest larger snake \
-                 (limit: {}), {} remaining opponents)",
+                "{} (snake {} @ {} turns from closest food, {} turns from \
+                 closest larger snake (limit: {}), {} remaining opponents)",
                 self.calculate(),
                 self.snake_id,
-                self.health,
+                self.closest_food,
                 self.closest_larger_snake,
                 Self::CLOSEST_LARGER_SNAKE_MAX,
                 self.remaining_opponents
@@ -426,19 +426,28 @@ impl Game {
             return ScoreFactors::dead(snake.id, depth);
         }
 
+        let head = snake.body[0];
+
+        let closest_food = self
+            .food
+            .iter()
+            .map(|food| manhattan_distance(&food, &head))
+            .min()
+            .unwrap_or(0);
+
         let closest_larger_snake = self
             .snakes
             .iter()
             .filter(|other| {
                 other.id != ME && other.body.len() >= snake.body.len()
             })
-            .map(|other| manhattan_distance(&snake.body[0], &other.body[0]))
+            .map(|other| manhattan_distance(&head, &other.body[0]))
             .min()
             .unwrap_or(0);
 
         ScoreFactors::alive(
             snake.id,
-            snake.health,
+            closest_food,
             closest_larger_snake,
             self.snakes.len() as i64 - 1,
             depth,
