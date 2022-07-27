@@ -37,7 +37,7 @@ impl Direction {
         }
     }
 
-    pub fn between(from: &Coord, to: &Coord) -> Option<Direction> {
+    pub fn between(from: Coord, to: Coord) -> Option<Direction> {
         // gets the most significant direction between two coordinates.
         // if the coordinates are the same, assumes up.
         // if the coordinates are exactly diagonal, gives the vertical direction

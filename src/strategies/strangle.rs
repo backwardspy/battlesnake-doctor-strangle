@@ -159,7 +159,7 @@ struct Game {
 
 impl Snake {
     pub fn facing(&self) -> Option<Direction> {
-        Direction::between(&self.body[1], &self.body[0])
+        Direction::between(self.body[1], self.body[0])
     }
 }
 
@@ -170,7 +170,7 @@ impl PartialEq for Snake {
 }
 
 impl Board {
-    fn contains(&self, coord: &Coord) -> bool {
+    fn contains(&self, coord: Coord) -> bool {
         coord.x >= 0
             && coord.y >= 0
             && coord.x < self.width
@@ -342,7 +342,7 @@ impl Game {
                 return false;
             }
 
-            if !step.board.contains(&snake.body[0]) {
+            if !step.board.contains(snake.body[0]) {
                 if trace_sim {
                     println!(
                         "snake {} dying because it's gone out of bounds at {}",
@@ -431,7 +431,7 @@ impl Game {
         let closest_food = self
             .food
             .iter()
-            .map(|food| manhattan_distance(&food, &head))
+            .map(|food| manhattan_distance(*food, head))
             .min()
             .unwrap_or(0);
 
@@ -441,7 +441,7 @@ impl Game {
             .filter(|other| {
                 other.id != ME && other.body.len() >= snake.body.len()
             })
-            .map(|other| manhattan_distance(&head, &other.body[0]))
+            .map(|other| manhattan_distance(head, other.body[0]))
             .min()
             .unwrap_or(0);
 
@@ -490,11 +490,18 @@ impl From<GameState> for Game {
     }
 }
 
-fn possible_directions(facing: Option<Direction>) -> Vec<Direction> {
+fn possible_directions(
+    facing: Option<Direction>,
+    head: Coord,
+    board: &Board,
+) -> Vec<Direction> {
     match facing {
         Some(next_facing) => Direction::iter()
             .copied()
-            .filter(|d| *d != next_facing.opposite())
+            .filter(|d| {
+                *d != next_facing.opposite()
+                    && board.contains(head.neighbour(*d))
+            })
             .collect(),
         None => Direction::iter().copied().collect(),
     }
@@ -638,7 +645,7 @@ fn bigbrain(
         .map(|snake| (snake.id, ScoreFactors::dead(snake.id, depth)))
         .collect();
 
-    let directions = possible_directions(snake.facing());
+    let directions = possible_directions(snake.facing(), snake.body[0], &game.board);
     let mut best_direction = *directions
         .choose(&mut rand::thread_rng())
         .expect("no directions");
