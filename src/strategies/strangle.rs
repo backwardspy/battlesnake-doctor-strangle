@@ -819,8 +819,8 @@ impl Strategy for StrangleStrategy {
 
     #[cfg(not(debug_assertions))]
     fn get_state(&self) -> Self::State {
-        const BOARD_WIDTH: i64 = 11;
-        const BOARD_HEIGHT: i64 = 11;
+        const BOARD_WIDTH: i64 = 19;
+        const BOARD_HEIGHT: i64 = 19;
         Self::State {
             solo_depth:      benchmark_game(1, BOARD_WIDTH, BOARD_HEIGHT)
                 .min(15),
