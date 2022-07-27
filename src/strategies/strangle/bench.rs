@@ -44,8 +44,8 @@ pub fn benchmark_game(
 
     let mut rng = rand::thread_rng();
 
-    let game = Game {
-        snakes:     (0..num_players)
+    let game = Game::new(
+        (0..num_players)
             .map(|id| {
                 make_snake(
                     id as SnakeID,
@@ -55,18 +55,17 @@ pub fn benchmark_game(
                 )
             })
             .collect(),
-        food:       (5..rng.gen_range(0..10))
+        (5..rng.gen_range(0..10))
             .map(|_| Coord {
                 x: rng.gen_range(0..board_width),
                 y: rng.gen_range(0..board_height),
             })
             .collect(),
-        board:      Board {
+        Board {
             width:  board_width,
             height: board_height,
         },
-        multisnake: num_players > 1,
-    };
+    );
 
     println!(
         "measuring performance for a {num_players} player game with {RUNS} \

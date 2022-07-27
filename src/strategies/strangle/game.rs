@@ -1,9 +1,4 @@
-use std::{
-    collections::{HashMap, HashSet},
-    fmt,
-};
-
-use itertools::Itertools;
+use std::{collections::HashMap, fmt};
 
 use super::{
     board::Board,
@@ -32,97 +27,24 @@ pub struct Game {
     pub snakes:     Vec<Snake>,
     pub food:       Vec<Coord>,
     pub board:      Board,
+    pub freespace:  Vec<Coord>,
     pub multisnake: bool,
 }
 
-impl fmt::Display for Game {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        for y in (0..self.board.height).rev() {
-            for x in 0..self.board.width {
-                if self.snakes.iter().any(|snake| {
-                    snake.body.iter().any(|c| c.x == x && c.y == y)
-                }) {
-                    write!(f, "#")?;
-                } else {
-                    write!(f, ".")?;
-                }
-            }
-            writeln!(f)?;
-        }
-        Ok(())
-    }
-}
-
 impl Game {
-    fn get_crashed_snakes(
-        snakes: Vec<Snake>,
-        trace_sim: bool,
-    ) -> HashSet<usize> {
-        let mut kill = HashSet::new();
-        for ((ai, a), (bi, b)) in snakes
-            .iter()
-            .enumerate()
-            .combinations(2)
-            .map(|v| (v[0], v[1]))
-        {
-            // check head-to-body collisions
-            if b.body.iter().skip(1).any(|c| *c == a.body[0]) {
-                kill.insert(ai);
-                if trace_sim {
-                    println!(
-                        "{} is dying because it hit {}'s body",
-                        a.id, b.id
-                    );
-                }
-            }
-            if a.body.iter().skip(1).any(|c| *c == b.body[0]) {
-                kill.insert(bi);
-                if trace_sim {
-                    println!(
-                        "{} is dying because it hit {}'s body'",
-                        b.id, a.id
-                    );
-                }
-            }
+    pub fn new(snakes: Vec<Snake>, food: Vec<Coord>, board: Board) -> Self {
+        let multisnake = snakes.len() > 1;
+        let mut game = Game {
+            snakes,
+            food,
+            board,
+            freespace: vec![],
+            multisnake,
+        };
 
-            // check head-to-head collisions
-            if a.body[0] == b.body[0] {
-                match (a.body.len() as i64 - b.body.len() as i64).signum() {
-                    1 => {
-                        kill.insert(bi);
-                        if trace_sim {
-                            println!(
-                                "{} is dying because it hit the longer {} \
-                                 head-on",
-                                b.id, a.id
-                            );
-                        }
-                    },
-                    -1 => {
-                        kill.insert(ai);
-                        if trace_sim {
-                            println!(
-                                "{} is dying because it hit the longer {} \
-                                 head-on",
-                                a.id, b.id
-                            );
-                        }
-                    },
-                    _ => {
-                        kill.insert(ai);
-                        kill.insert(bi);
-                        if trace_sim {
-                            println!(
-                                "{} and {} are dying because of a same-size \
-                                 head-on collision",
-                                a.id, b.id
-                            );
-                        }
-                    },
-                }
-            }
-        }
-        kill
+        game.calculate_free_space();
+
+        game
     }
 
     pub fn game_type(&self) -> GameType {
@@ -199,21 +121,11 @@ impl Game {
                 return false;
             }
 
-            if !step.board.contains(snake.body[0]) {
+            if !self.freespace.contains(&snake.body[0]) {
                 if trace_sim {
                     println!(
-                        "snake {} dying because it's gone out of bounds at {}",
-                        snake.id, snake.body[0]
-                    );
-                }
-                return false;
-            }
-
-            if snake.body.iter().skip(1).any(|c| *c == snake.body[0]) {
-                if trace_sim {
-                    println!(
-                        "snake {} dying because it hit its own body at {}",
-                        snake.id, snake.body[0]
+                        "snake {} dying because it's not in freespace",
+                        snake.id
                     );
                 }
                 return false;
@@ -229,11 +141,6 @@ impl Game {
                 step.food.len()
             );
         }
-
-        let crashed = Self::get_crashed_snakes(step.snakes.clone(), trace_sim);
-
-        let mut keep = (0..step.snakes.len()).map(|i| !crashed.contains(&i));
-        step.snakes.retain(|_| keep.next().unwrap());
 
         if trace_sim {
             println!(
@@ -274,6 +181,8 @@ impl Game {
             println!("[ end of sim ]\n");
         }
 
+        step.calculate_free_space();
+
         step
     }
 
@@ -310,6 +219,20 @@ impl Game {
             depth,
         )
     }
+
+    fn calculate_free_space(&mut self) {
+        self.freespace = (0..self.board.height)
+            .flat_map(|y| (0..self.board.width).map(move |x| Coord { x, y }))
+            .filter(|coord| {
+                !self
+                    .snakes
+                    .iter()
+                    .map(|snake| &snake.body)
+                    .any(|body| body.contains(coord))
+                    && !self.food.contains(coord)
+            })
+            .collect();
+    }
 }
 
 impl From<GameState> for Game {
@@ -325,10 +248,8 @@ impl From<GameState> for Game {
         let mut snakes = state.board.snakes;
         snakes.swap(ME, you_idx);
 
-        let multisnake = snakes.len() > 1;
-
-        Game {
-            snakes: snakes
+        Game::new(
+            snakes
                 .into_iter()
                 .enumerate()
                 .map(|(id, snake)| Snake {
@@ -337,12 +258,29 @@ impl From<GameState> for Game {
                     health: snake.health,
                 })
                 .collect(),
-            food: state.board.food,
-            board: Board {
+            state.board.food,
+            Board {
                 width:  state.board.width,
                 height: state.board.height,
             },
-            multisnake,
+        )
+    }
+}
+
+impl fmt::Display for Game {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        for y in (0..self.board.height).rev() {
+            for x in 0..self.board.width {
+                if self.snakes.iter().any(|snake| {
+                    snake.body.iter().any(|c| c.x == x && c.y == y)
+                }) {
+                    write!(f, "#")?;
+                } else {
+                    write!(f, ".")?;
+                }
+            }
+            writeln!(f)?;
         }
+        Ok(())
     }
 }
