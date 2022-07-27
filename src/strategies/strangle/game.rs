@@ -242,19 +242,16 @@ impl Game {
 
     fn calculate_free_space(&self) -> Vec<bool> {
         let mut freespace =
-            vec![false; (self.board.width * self.board.height) as usize];
-        for y in 0..self.board.height {
-            for x in 0..self.board.width {
-                let c = Coord { x, y };
-                let idx = self.freespace_index(c).expect(
-                    "calculate_free_space should never go out of bounds!",
-                );
-                freespace[idx] = !self
-                    .snakes
-                    .iter()
-                    .any(|snake| c != snake.body[0] && snake.body.contains(&c));
+            vec![true; (self.board.width * self.board.height) as usize];
+
+        for snake in &self.snakes {
+            for part in snake.body.iter().skip(1) {
+                if let Some(index) = self.freespace_index(*part) {
+                    freespace[index] = false;
+                }
             }
         }
+
         freespace
     }
 }
