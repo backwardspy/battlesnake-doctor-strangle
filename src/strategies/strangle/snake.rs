@@ -16,16 +16,14 @@ impl Snake {
     }
 
     pub fn possible_directions(&self, board: &Board) -> Vec<Direction> {
-        match self.facing() {
-            Some(facing) => Direction::iter()
-                .copied()
-                .filter(|d| {
-                    *d != facing.opposite()
-                        && board.contains(self.body[0].neighbour(*d))
-                })
-                .collect(),
-            None => Direction::iter().copied().collect(),
-        }
+        let facing = self.facing();
+        Direction::iter()
+            .copied()
+            .filter(|d| {
+                (facing.is_some() && facing.unwrap().opposite() != *d)
+                    && board.contains(self.body[0].neighbour(*d))
+            })
+            .collect()
     }
 }
 

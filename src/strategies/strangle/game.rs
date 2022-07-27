@@ -26,19 +26,23 @@ pub enum GameType {
 pub struct Game {
     pub snakes:     Vec<Snake>,
     pub food:       Vec<Coord>,
+    pub prev_food:  Vec<Coord>,
     pub board:      Board,
-    pub freespace:  Vec<Coord>,
+    pub freespace:  Vec<bool>,
     pub multisnake: bool,
 }
 
 impl Game {
     pub fn new(snakes: Vec<Snake>, food: Vec<Coord>, board: Board) -> Self {
         let multisnake = snakes.len() > 1;
+        let board_size = (board.width * board.height) as usize;
+        let prev_food = food.clone();
         let mut game = Game {
             snakes,
             food,
+            prev_food,
             board,
-            freespace: vec![],
+            freespace: vec![false; board_size],
             multisnake,
         };
 
@@ -121,7 +125,17 @@ impl Game {
                 return false;
             }
 
-            if !self.freespace.contains(&snake.body[0]) {
+            if let Some(index) = self.freespace_index(snake.body[0]) {
+                if !self.freespace[index] {
+                    if trace_sim {
+                        println!(
+                            "snake {} dying because it's not in freespace",
+                            snake.id
+                        );
+                    }
+                    return false;
+                }
+            } else {
                 if trace_sim {
                     println!(
                         "snake {} dying because it's not in freespace",
@@ -151,6 +165,8 @@ impl Game {
         }
 
         // step 3 - eat food
+        step.prev_food.clear();
+        step.prev_food.extend_from_slice(&step.food);
         step.food.retain(|food| {
             for snake in &mut step.snakes {
                 if snake.body[0] == *food {
@@ -194,6 +210,8 @@ impl Game {
 
         let head = snake.body[0];
 
+        // measure against prev_food, otherwise eating food removes it and thus
+        // puts us far away from the nearest food.
         let closest_food = self
             .food
             .iter()
@@ -213,6 +231,7 @@ impl Game {
 
         ScoreFactors::alive(
             snake.id,
+            snake.health,
             closest_food,
             closest_larger_snake,
             self.snakes.len() as i64 - 1,
@@ -220,18 +239,29 @@ impl Game {
         )
     }
 
+    fn freespace_index(&self, coord: Coord) -> Option<usize> {
+        let idx = coord.y * self.board.width + coord.x;
+        if idx < 0 || idx as usize >= self.freespace.len() {
+            None
+        } else {
+            Some(idx as usize)
+        }
+    }
+
     fn calculate_free_space(&mut self) {
-        self.freespace = (0..self.board.height)
-            .flat_map(|y| (0..self.board.width).map(move |x| Coord { x, y }))
-            .filter(|coord| {
-                !self
+        for y in 0..self.board.height {
+            for x in 0..self.board.width {
+                let c = Coord { x, y };
+                let idx = self.freespace_index(c).expect(
+                    "calculate_free_space should never go out of bounds!",
+                );
+                self.freespace[idx] = !self
                     .snakes
                     .iter()
                     .map(|snake| &snake.body)
-                    .any(|body| body.contains(coord))
-                    && !self.food.contains(coord)
-            })
-            .collect();
+                    .any(|body| body.contains(&c));
+            }
+        }
     }
 }
 

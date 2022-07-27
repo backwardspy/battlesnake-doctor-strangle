@@ -39,8 +39,8 @@ pub fn benchmark_game(
     board_width: i64,
     board_height: i64,
 ) -> u64 {
-    const LIMIT: f64 = 250.0; // millis
-    const RUNS: u64 = 15;
+    const LIMIT_MEAN: f64 = 250.0; // millis
+    const RUNS: u64 = 10;
 
     let mut rng = rand::thread_rng();
 
@@ -77,16 +77,15 @@ pub fn benchmark_game(
             .map(|_| {
                 let now = Instant::now();
                 bigbrain(&game, 0, 0, depth, &HashMap::new(), false, false);
-                let elapsed = now.elapsed();
-                elapsed.as_millis() as f64
+                now.elapsed().as_millis() as f64
             })
             .sum::<f64>()
             / RUNS as f64;
 
-        if millis >= LIMIT {
+        if millis >= LIMIT_MEAN {
             let chosen_depth = (depth - 1).max(1);
             println!(
-                "reached the limit of {LIMIT} ms at depth {depth} (took \
+                "reached the limit of {LIMIT_MEAN} ms at depth {depth} (took \
                  {millis} ms). going with a max depth of {chosen_depth}"
             );
             return chosen_depth;

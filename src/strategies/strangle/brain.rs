@@ -1,7 +1,6 @@
 use std::collections::{hash_map::Entry, HashMap};
 
 use itertools::Itertools;
-use rand::prelude::SliceRandom;
 
 use super::{
     game::Game,
@@ -141,9 +140,7 @@ pub fn bigbrain(
         .collect();
 
     let directions = snake.possible_directions(&game.board);
-    let mut best_direction = *directions
-        .choose(&mut rand::thread_rng())
-        .expect("no directions");
+    let mut best_direction = Direction::Up;
 
     let next_snake_index = (snake_index + 1) % game.snakes.len();
     let next_depth = if next_snake_index == ME {
