@@ -40,7 +40,7 @@ pub fn benchmark_game(
     board_height: i64,
 ) -> u64 {
     const LIMIT_MEAN: f64 = 250.0; // millis
-    const RUNS: u64 = 10;
+    const RUNS: u64 = 3;
 
     let mut rng = rand::thread_rng();
 

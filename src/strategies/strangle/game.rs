@@ -113,6 +113,8 @@ impl Game {
             );
         }
 
+        step.calculate_free_space();
+
         // step 2 - remove eliminated battlesnakes
         step.snakes.retain(|snake| {
             if snake.health <= 0 {
@@ -196,8 +198,6 @@ impl Game {
         if trace_sim {
             println!("[ end of sim ]\n");
         }
-
-        step.calculate_free_space();
 
         step
     }
