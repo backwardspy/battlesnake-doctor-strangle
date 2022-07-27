@@ -24,7 +24,7 @@ impl<'de> de::Visitor<'de> for DeserializeU64OrStringVisitor {
     where
         E: de::Error,
     {
-        v.parse::<u64>().map_err(E::custom)
+        Ok(v.parse::<u64>().unwrap_or(0))
     }
 }
 
