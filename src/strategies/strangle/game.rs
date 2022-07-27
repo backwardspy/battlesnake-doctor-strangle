@@ -28,27 +28,20 @@ pub struct Game {
     pub food:       Vec<Coord>,
     pub prev_food:  Vec<Coord>,
     pub board:      Board,
-    pub freespace:  Vec<bool>,
     pub multisnake: bool,
 }
 
 impl Game {
     pub fn new(snakes: Vec<Snake>, food: Vec<Coord>, board: Board) -> Self {
         let multisnake = snakes.len() > 1;
-        let board_size = (board.width * board.height) as usize;
         let prev_food = food.clone();
-        let mut game = Game {
+        Game {
             snakes,
             food,
             prev_food,
             board,
-            freespace: vec![false; board_size],
             multisnake,
-        };
-
-        game.calculate_free_space();
-
-        game
+        }
     }
 
     pub fn game_type(&self) -> GameType {
@@ -113,7 +106,7 @@ impl Game {
             );
         }
 
-        step.calculate_free_space();
+        let freespace = step.calculate_free_space();
 
         // step 2 - remove eliminated battlesnakes
         step.snakes.retain(|snake| {
@@ -128,11 +121,11 @@ impl Game {
             }
 
             if let Some(index) = self.freespace_index(snake.body[0]) {
-                if !self.freespace[index] {
+                if !freespace[index] {
                     if trace_sim {
                         println!(
                             "snake {} dying because it's not in freespace",
-                            snake.id
+                            snake.id,
                         );
                     }
                     return false;
@@ -141,7 +134,7 @@ impl Game {
                 if trace_sim {
                     println!(
                         "snake {} dying because it's not in freespace",
-                        snake.id
+                        snake.id,
                     );
                 }
                 return false;
@@ -240,28 +233,29 @@ impl Game {
     }
 
     fn freespace_index(&self, coord: Coord) -> Option<usize> {
-        let idx = coord.y * self.board.width + coord.x;
-        if idx < 0 || idx as usize >= self.freespace.len() {
+        if !self.board.contains(coord) {
             None
         } else {
-            Some(idx as usize)
+            Some((coord.y * self.board.width + coord.x) as usize)
         }
     }
 
-    fn calculate_free_space(&mut self) {
+    fn calculate_free_space(&self) -> Vec<bool> {
+        let mut freespace =
+            vec![false; (self.board.width * self.board.height) as usize];
         for y in 0..self.board.height {
             for x in 0..self.board.width {
                 let c = Coord { x, y };
                 let idx = self.freespace_index(c).expect(
                     "calculate_free_space should never go out of bounds!",
                 );
-                self.freespace[idx] = !self
+                freespace[idx] = !self
                     .snakes
                     .iter()
-                    .map(|snake| &snake.body)
-                    .any(|body| body.contains(&c));
+                    .any(|snake| c != snake.body[0] && snake.body.contains(&c));
             }
         }
+        freespace
     }
 }
 
@@ -301,10 +295,10 @@ impl fmt::Display for Game {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         for y in (0..self.board.height).rev() {
             for x in 0..self.board.width {
-                if self.snakes.iter().any(|snake| {
+                if let Some(snake) = self.snakes.iter().find(|snake| {
                     snake.body.iter().any(|c| c.x == x && c.y == y)
                 }) {
-                    write!(f, "#")?;
+                    write!(f, "{}", snake.id)?;
                 } else {
                     write!(f, ".")?;
                 }

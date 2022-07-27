@@ -14,7 +14,7 @@ use crate::fightsnake::types::Direction;
 type BigbrainScores = HashMap<SnakeID, ScoreFactors>;
 
 pub struct BigbrainResult {
-    scores:        BigbrainScores,
+    pub scores:    BigbrainScores,
     pub direction: Option<Direction>,
 }
 
@@ -78,6 +78,7 @@ pub fn bigbrain(
         );
 
         let new_game = game.step(&moves, trace_sim);
+
         game = new_game;
         moves.clear();
 

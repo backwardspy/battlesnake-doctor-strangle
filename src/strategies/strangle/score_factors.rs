@@ -4,13 +4,13 @@ use super::SnakeID;
 
 #[derive(Debug)]
 pub struct ScoreFactors {
-    snake_id:             SnakeID,
-    health:               i64,
-    dead:                 bool,
-    closest_food:         i64,
-    closest_larger_snake: i64,
-    remaining_opponents:  i64,
-    depth:                i64,
+    pub snake_id:             SnakeID,
+    pub health:               i64,
+    pub dead:                 bool,
+    pub closest_food:         i64,
+    pub closest_larger_snake: i64,
+    pub remaining_opponents:  i64,
+    pub depth:                i64,
 }
 
 impl ScoreFactors {
@@ -73,17 +73,19 @@ impl fmt::Display for ScoreFactors {
         if self.dead {
             write!(
                 f,
-                "{} (snake {} is freakin dead dude)",
+                "{} @ d{} (snake {} is freakin dead dude)",
                 self.calculate(),
+                self.depth,
                 self.snake_id
             )
         } else {
             write!(
                 f,
-                "{} (snake {} @ {} health, {} turns from closest food, {} \
-                 turns from closest larger snake (limit: {}), {} remaining \
+                "{} @ d{} (snake {} @ {} health, {} turns from closest food, \
+                 {} turns from closest larger snake (limit: {}), {} remaining \
                  opponents)",
                 self.calculate(),
+                self.depth,
                 self.snake_id,
                 self.health,
                 self.closest_food,
