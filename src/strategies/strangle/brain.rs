@@ -20,20 +20,23 @@ type BigbrainScores = HashMap<SnakeID, ScoreFactors>;
 pub struct BigbrainResult {
     pub scores:    BigbrainScores,
     pub direction: Option<Direction>,
+    pub depth:     u64,
 }
 
 impl BigbrainResult {
-    fn inner(scores: BigbrainScores) -> Self {
+    fn inner(scores: BigbrainScores, depth: u64) -> Self {
         Self {
             scores,
             direction: None,
+            depth,
         }
     }
 
-    fn outer(scores: BigbrainScores, direction: Direction) -> Self {
+    fn outer(scores: BigbrainScores, direction: Direction, depth: u64) -> Self {
         Self {
             scores,
             direction: Some(direction),
+            depth,
         }
     }
 }
@@ -57,9 +60,9 @@ fn calculate_hash(game: &Game) -> u64 {
 }
 
 pub struct BigbrainOptions {
-    pub max_depth: u64,
+    pub max_depth:  u64,
     pub time_limit: Duration,
-    pub trace_sim: bool,
+    pub trace_sim:  bool,
 }
 
 pub fn bigbrain(
@@ -136,7 +139,7 @@ pub fn bigbrain(
 
         let mut exit = false;
 
-        if !game.snakes.iter().any(|s| s.id == snake.id) {
+        if !game.snakes.iter().any(|s| s.id == ME) {
             trace!("{align}this has killed our snake.");
             exit = true;
         }
@@ -153,19 +156,21 @@ pub fn bigbrain(
 
         if exit {
             trace!("{align}propagating up!");
-            return Some(BigbrainResult::inner(scores.clone()));
+            return Some(BigbrainResult::inner(scores.clone(), depth));
         }
     }
 
-    let mut has_best_score = false;
-    let mut best_scores: HashMap<_, _> = game
-        .snakes
-        .iter()
-        .map(|snake| (snake.id, ScoreFactors::dead(snake.id, depth)))
-        .collect();
-
     let directions = snake.possible_directions(&game.board);
     let mut best_direction = Direction::Up;
+
+    let mut has_best_result = false;
+    let mut best_result = BigbrainResult::inner(
+        game.snakes
+            .iter()
+            .map(|snake| (snake.id, ScoreFactors::dead(snake.id, depth)))
+            .collect(),
+        depth,
+    );
 
     let next_snake_index = (snake_index + 1) % game.snakes.len();
     let next_depth = if next_snake_index == ME {
@@ -190,7 +195,7 @@ pub fn bigbrain(
 
         if result.is_none() {
             trace!("{align}ran out of time, aborting!");
-            break;
+            return None;
         }
 
         let mut result = result.unwrap();
@@ -211,7 +216,7 @@ pub fn bigbrain(
             trace!("{align}  * {score}");
         }
 
-        if !has_best_score {
+        if !has_best_result {
             trace!(
                 "{align}got our first scores for this depth: {:?}",
                 result
@@ -223,9 +228,9 @@ pub fn bigbrain(
                     ))
                     .join(", ")
             );
-            best_scores = result.scores;
+            best_result = result;
             best_direction = direction;
-            has_best_score = true;
+            has_best_result = true;
         } else {
             let score = result
                 .scores
@@ -234,11 +239,11 @@ pub fn bigbrain(
                 .calculate();
 
             trace!("{align}comparing {score} against previous best...");
-            if score > best_scores[&snake.id].calculate() {
+            if score > best_result.scores[&snake.id].calculate() {
                 trace!(
                     "{align}{direction} is better! setting that as best score."
                 );
-                best_scores = result.scores;
+                best_result = result;
                 best_direction = direction;
             } else {
                 trace!("{align}worse...");
@@ -250,10 +255,15 @@ pub fn bigbrain(
         "{align}snake {}'s best move at this depth is {best_direction} with a \
          score of {}",
         snake.id,
-        best_scores
+        best_result
+            .scores
             .get(&snake.id)
-            .unwrap_or(&ScoreFactors::dead(snake.id, depth)),
+            .unwrap_or(&ScoreFactors::dead(snake.id, depth))
     );
 
-    Some(BigbrainResult::outer(best_scores, best_direction))
+    Some(BigbrainResult::outer(
+        best_result.scores,
+        best_direction,
+        best_result.depth,
+    ))
 }

@@ -152,8 +152,8 @@ impl Game {
 
         // step 2a resolve head-to-head collisions
         let mut keep = vec![true; step.snakes.len()];
-        for (i, a) in step.snakes.iter().enumerate() {
-            for b in &step.snakes[i + 1..] {
+        for (ai, a) in step.snakes.iter().enumerate() {
+            for (bi, b) in step.snakes[ai + 1..].iter().enumerate() {
                 if a.body[0] == b.body[0] {
                     if b.body.len() >= a.body.len() {
                         if trace_sim {
@@ -163,7 +163,7 @@ impl Game {
                                 a.id, b.id
                             );
                         }
-                        keep[i] = false;
+                        keep[ai] = false;
                     }
                     if a.body.len() >= b.body.len() {
                         if trace_sim {
@@ -173,7 +173,7 @@ impl Game {
                                 b.id, a.id
                             );
                         }
-                        keep[i + 1] = false;
+                        keep[bi] = false;
                     }
                 }
             }

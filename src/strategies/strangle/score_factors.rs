@@ -54,7 +54,7 @@ impl ScoreFactors {
 
     pub fn calculate(&self) -> i64 {
         if self.dead {
-            -1000000 + self.depth as i64 * Self::DEPTH_WEIGHT
+            -100000000 + self.depth as i64 * Self::DEPTH_WEIGHT
         } else {
             self.health * Self::HEALTH_WEIGHT
                 + self.closest_food * Self::CLOSEST_FOOD_WEIGHT
@@ -81,9 +81,11 @@ impl fmt::Display for ScoreFactors {
         } else {
             write!(
                 f,
-                "{} @ d{} (snake {} @ {} health, {} turns from closest food, \
-                 {} turns from closest larger snake (limit: {}), {} remaining \
-                 opponents)",
+                "{} @ d{} (snake {}):
+                * {} health
+                * {} turns from closest food
+                * {} turns from closest larger snake (limit: {}),
+                * {} remaining opponents)",
                 self.calculate(),
                 self.depth,
                 self.snake_id,

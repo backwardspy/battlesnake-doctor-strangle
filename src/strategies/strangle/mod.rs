@@ -1,5 +1,5 @@
-pub mod brain;
 mod board;
+pub mod brain;
 mod game;
 mod score_factors;
 mod snake;
@@ -37,6 +37,7 @@ impl Strategy for StrangleStrategy {
         let mut result = BigbrainResult {
             scores:    HashMap::new(),
             direction: None,
+            depth:     0,
         };
 
         let mut known_scores = HashMap::new();
@@ -55,7 +56,16 @@ impl Strategy for StrangleStrategy {
                     trace_sim:  TRACE_SIM,
                 },
             ) {
-                Some(new_result) => result = new_result,
+                Some(new_result) => {
+                    result = new_result;
+                    if result.depth < depth {
+                        println!(
+                            "bigbrain only got to depth {}/{}, exiting early.",
+                            result.depth, depth
+                        );
+                        break;
+                    }
+                },
                 None => break,
             }
 
