@@ -1,6 +1,5 @@
-pub mod bench;
-mod board;
 pub mod brain;
+mod board;
 mod game;
 mod score_factors;
 mod snake;

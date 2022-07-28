@@ -27,18 +27,25 @@ pub struct Game {
     pub snakes:     Vec<Snake>,
     pub food:       Vec<Coord>,
     pub prev_food:  Vec<Coord>,
+    pub hazards:    Vec<Coord>,
     pub board:      Board,
     pub multisnake: bool,
 }
 
 impl Game {
-    pub fn new(snakes: Vec<Snake>, food: Vec<Coord>, board: Board) -> Self {
+    pub fn new(
+        snakes: Vec<Snake>,
+        food: Vec<Coord>,
+        hazards: Vec<Coord>,
+        board: Board,
+    ) -> Self {
         let multisnake = snakes.len() > 1;
         let prev_food = food.clone();
         Game {
             snakes,
             food,
             prev_food,
+            hazards,
             board,
             multisnake,
         }
@@ -283,6 +290,12 @@ impl Game {
             }
         }
 
+        for hazard in &self.hazards {
+            freespace[self
+                .freespace_index(*hazard)
+                .expect("hazards should never be off the board!")] = false;
+        }
+
         freespace
     }
 }
@@ -311,6 +324,7 @@ impl From<GameState> for Game {
                 })
                 .collect(),
             state.board.food,
+            state.board.hazards,
             Board {
                 width:  state.board.width,
                 height: state.board.height,
