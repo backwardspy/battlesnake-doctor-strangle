@@ -33,18 +33,13 @@ fn make_snake(
     }
 }
 
-#[allow(dead_code)]
-pub fn benchmark_game(
+pub fn make_game(
     num_players: u64,
     board_width: i64,
     board_height: i64,
-) -> u64 {
-    const LIMIT_MEAN: f64 = 250.0; // millis
-    const RUNS: u64 = 3;
-
+) -> Game {
     let mut rng = rand::thread_rng();
-
-    let game = Game::new(
+    Game::new(
         (0..num_players)
             .map(|id| {
                 make_snake(
@@ -65,7 +60,19 @@ pub fn benchmark_game(
             width:  board_width,
             height: board_height,
         },
-    );
+    )
+}
+
+#[allow(dead_code)]
+pub fn benchmark_game(
+    num_players: u64,
+    board_width: i64,
+    board_height: i64,
+) -> u64 {
+    const LIMIT_MEAN: f64 = 350.0; // millis
+    const RUNS: u64 = 3;
+
+    let game = make_game(num_players, board_width, board_height);
 
     println!(
         "measuring performance for a {num_players} player game with {RUNS} \

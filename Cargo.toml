@@ -2,6 +2,7 @@
 name = "battlesnake-doctor-strangle"
 version = "0.1.0"
 edition = "2021"
+default-run = "snake"
 
 [dependencies]
 anyhow = "1"
@@ -12,3 +13,6 @@ warp = "0"
 serde = { version = "1", features = ["derive"] }
 itertools = "0"
 rand = "0"
+reqwest = {version = "0", features = ["blocking"] }
+convert_case = "0"
+scraper = "0"

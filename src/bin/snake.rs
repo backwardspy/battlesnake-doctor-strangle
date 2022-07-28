@@ -1,15 +1,14 @@
-mod fightsnake;
-mod strategies;
-
 use std::sync::{Arc, Mutex};
 
 use anyhow::Result;
-use fightsnake::{
-    models::{GameState, Movement, Status},
-    types::{APIVersion, Head, Tail},
+use battlesnake_doctor_strangle::{
+    fightsnake::{
+        models::{GameState, Movement, Status},
+        types::{APIVersion, Head, Tail},
+    },
+    strategies::{StrangleStrategy, Strategy},
 };
 use log::info;
-use strategies::{StrangleStrategy, Strategy};
 use warp::{http::Method, Filter};
 
 const NAME: &str = env!("CARGO_PKG_NAME");

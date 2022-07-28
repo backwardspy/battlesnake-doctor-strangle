@@ -85,10 +85,10 @@ impl Game {
                 panic!("snake #{} didn't provide a move", snake.id)
             });
 
+            snake.body.pop_back();
             snake
                 .body
                 .push_front(snake.body.front().unwrap().neighbour(direction));
-            snake.body.pop_back();
             snake.health -= 1;
             if trace_sim {
                 println!(

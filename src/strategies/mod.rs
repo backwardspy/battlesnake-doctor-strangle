@@ -1,4 +1,4 @@
-mod strangle;
+pub mod strangle;
 
 pub use strangle::StrangleStrategy;
 
