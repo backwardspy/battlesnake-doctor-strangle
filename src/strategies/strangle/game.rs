@@ -24,12 +24,13 @@ pub enum GameType {
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Game {
-    pub snakes:     Vec<Snake>,
-    pub food:       Vec<Coord>,
-    pub prev_food:  Vec<Coord>,
-    pub hazards:    Vec<Coord>,
-    pub board:      Board,
-    pub multisnake: bool,
+    pub snakes:      Vec<Snake>,
+    pub prev_snakes: Vec<Snake>,
+    pub food:        Vec<Coord>,
+    pub prev_food:   Vec<Coord>,
+    pub hazards:     Vec<Coord>,
+    pub board:       Board,
+    pub multisnake:  bool,
 }
 
 impl Game {
@@ -40,9 +41,11 @@ impl Game {
         board: Board,
     ) -> Self {
         let multisnake = snakes.len() > 1;
+        let prev_snakes = snakes.clone();
         let prev_food = food.clone();
         Game {
             snakes,
+            prev_snakes,
             food,
             prev_food,
             hazards,
@@ -116,6 +119,9 @@ impl Game {
         let freespace = step.calculate_free_space();
 
         // step 2 - remove eliminated battlesnakes
+        step.prev_snakes.clear();
+        step.prev_snakes.extend_from_slice(&step.snakes);
+
         step.snakes.retain(|snake| {
             if snake.health <= 0 {
                 if trace_sim {
@@ -233,10 +239,10 @@ impl Game {
         step
     }
 
-    pub fn score(&self, snake: &Snake, depth: u64) -> ScoreFactors {
+    pub fn score(&self, snake: &Snake) -> ScoreFactors {
         if !self.snakes.contains(snake) {
             // we really don't want to die
-            return ScoreFactors::dead(snake.id, depth);
+            return ScoreFactors::dead(snake.id, self.multisnake);
         }
 
         let head = snake.body[0];
@@ -266,7 +272,7 @@ impl Game {
             closest_food,
             closest_larger_snake,
             self.snakes.len() as i64 - 1,
-            depth,
+            self.multisnake,
         )
     }
 
