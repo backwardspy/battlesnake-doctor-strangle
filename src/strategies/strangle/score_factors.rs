@@ -2,7 +2,7 @@ use std::fmt;
 
 use super::SnakeID;
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct ScoreFactors {
     pub snake_id:             SnakeID,
     pub health:               i64,
@@ -15,10 +15,10 @@ pub struct ScoreFactors {
 
 impl ScoreFactors {
     const CLOSEST_FOOD_WEIGHT: i64 = -100;
-    const LARGE_SNAKE_DISTANCE_MAX: i64 = 3;
-    const LARGE_SNAKE_DISTANCE_WEIGHT: i64 = 10000;
     const DEPTH_WEIGHT: i64 = 1000;
     const HEALTH_WEIGHT: i64 = 100;
+    const LARGE_SNAKE_DISTANCE_MAX: i64 = 3;
+    const LARGE_SNAKE_DISTANCE_WEIGHT: i64 = 10000;
     const REMAINING_OPPONENTS_WEIGHT: i64 = -100000;
 
     pub fn alive(

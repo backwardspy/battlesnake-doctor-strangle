@@ -1,14 +1,11 @@
-use std::{
-    collections::{HashMap, VecDeque},
-    time::Instant,
-};
+use std::collections::VecDeque;
 
 use rand::Rng;
 
 use super::{snake::Snake, SnakeID};
 use crate::{
     fightsnake::types::Coord,
-    strategies::strangle::{board::Board, brain::bigbrain, game::Game},
+    strategies::strangle::{board::Board, game::Game},
 };
 
 fn make_snake(
@@ -61,48 +58,4 @@ pub fn make_game(
             height: board_height,
         },
     )
-}
-
-#[allow(dead_code)]
-pub fn benchmark_game(
-    num_players: u64,
-    board_width: i64,
-    board_height: i64,
-) -> u64 {
-    const LIMIT_MEAN: f64 = 350.0; // millis
-    const RUNS: u64 = 3;
-
-    let game = make_game(num_players, board_width, board_height);
-
-    println!(
-        "measuring performance for a {num_players} player game with {RUNS} \
-         runs per depth..."
-    );
-
-    for depth in 1..=20 {
-        let millis = (0..RUNS)
-            .map(|_| {
-                let now = Instant::now();
-                bigbrain(&game, 0, 0, depth, &HashMap::new(), false);
-                now.elapsed().as_millis() as f64
-            })
-            .sum::<f64>()
-            / RUNS as f64;
-
-        if millis >= LIMIT_MEAN {
-            let chosen_depth = (depth - 1).max(1);
-            println!(
-                "reached the limit of {LIMIT_MEAN} ms at depth {depth} (took \
-                 {millis:.2} ms). going with a max depth of {chosen_depth}"
-            );
-            return chosen_depth;
-        }
-    }
-
-    println!(
-        "we somehow managed all tests without timing out, so going with a max \
-         depth of 20."
-    );
-    println!("consider testing even further..?");
-    20
 }

@@ -1,5 +1,3 @@
-use std::sync::{Arc, Mutex};
-
 use anyhow::Result;
 use battlesnake_doctor_strangle::{
     fightsnake::{
@@ -24,10 +22,6 @@ async fn main() -> Result<()> {
 
     #[cfg(not(debug_assertions))]
     info!("running in release mode");
-
-    info!("gathering strategy state...");
-    let state = Arc::new(Mutex::new(StrangleStrategy.get_state()));
-    info!("strategy state gathered successfully.");
 
     let cors = warp::cors()
         .allow_method(Method::GET)
@@ -56,17 +50,12 @@ async fn main() -> Result<()> {
     let do_move = warp::post()
         .and(warp::path("move"))
         .and(warp::body::json())
-        .map({
-            let state = state.clone();
-            move |game_state: GameState| {
-                let mut state = state.lock().unwrap();
-                let movement =
-                    StrangleStrategy.get_movement(game_state, &mut state);
-                warp::reply::json(&Movement {
-                    movement,
-                    shout: None,
-                })
-            }
+        .map(|game_state: GameState| {
+            let movement = StrangleStrategy.get_movement(game_state);
+            warp::reply::json(&Movement {
+                movement,
+                shout: None,
+            })
         });
 
     let api = healthz.or(start).or(do_move).with(cors).with(logging);

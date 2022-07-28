@@ -1,6 +1,6 @@
 use crate::fightsnake::types::Coord;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Board {
     pub width:  i64,
     pub height: i64,

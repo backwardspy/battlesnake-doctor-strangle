@@ -1,31 +1,24 @@
 pub mod bench;
-pub mod brain;
 mod board;
+pub mod brain;
 mod game;
 mod score_factors;
 mod snake;
 mod utils;
 
-use std::collections::HashMap;
+use std::{
+    collections::HashMap,
+    time::{Duration, Instant},
+};
 
 use self::game::Game;
 use super::Strategy;
-#[cfg(not(debug_assertions))]
-use crate::strategies::strangle::bench::benchmark_game;
 use crate::{
     fightsnake::{models::GameState, types::Direction},
-    strategies::strangle::{brain::bigbrain, game::GameType},
+    strategies::strangle::brain::{bigbrain, BigbrainOptions, BigbrainResult},
 };
 
 pub const TRACE_SIM: bool = false;
-
-pub struct StrangleState {
-    solo_depth:      u64,
-    duel_depth:      u64,
-    triple_depth:    u64,
-    quadruple_depth: u64,
-    too_many_depth:  u64,
-}
 
 pub struct StrangleStrategy;
 
@@ -33,63 +26,49 @@ type SnakeID = usize;
 const ME: SnakeID = 0;
 
 impl Strategy for StrangleStrategy {
-    type State = StrangleState;
+    fn get_movement(&self, game_state: GameState) -> Direction {
+        let start = Instant::now();
 
-    #[cfg(debug_assertions)]
-    fn get_state(&self) -> Self::State {
-        Self::State {
-            solo_depth:      3,
-            duel_depth:      2,
-            triple_depth:    2,
-            quadruple_depth: 1,
-            too_many_depth:  1,
-        }
-    }
+        const TIME_LIMIT: Duration = Duration::from_millis(400);
 
-    #[cfg(not(debug_assertions))]
-    fn get_state(&self) -> Self::State {
-        const BOARD_WIDTH: i64 = 19;
-        const BOARD_HEIGHT: i64 = 19;
-        Self::State {
-            solo_depth:      benchmark_game(1, BOARD_WIDTH, BOARD_HEIGHT)
-                .min(15),
-            duel_depth:      benchmark_game(2, BOARD_WIDTH, BOARD_HEIGHT)
-                .min(6),
-            triple_depth:    benchmark_game(3, BOARD_WIDTH, BOARD_HEIGHT)
-                .min(3),
-            quadruple_depth: benchmark_game(4, BOARD_WIDTH, BOARD_HEIGHT)
-                .min(2),
-            too_many_depth:  1,
-        }
-    }
-
-    fn get_movement(
-        &self,
-        game_state: GameState,
-        state: &mut Self::State,
-    ) -> Direction {
         let game = Game::from(game_state);
-        let max_depth = match game.game_type() {
-            GameType::Solo => state.solo_depth,
-            GameType::Duel => state.duel_depth,
-            GameType::Triple => state.triple_depth,
-            GameType::Quadruple => state.quadruple_depth,
-            GameType::TooMany => state.too_many_depth,
+
+        let mut depth = 1;
+
+        let mut result = BigbrainResult {
+            scores:    HashMap::new(),
+            direction: None,
         };
 
-        println!(
-            "searching {max_depth} moves ahead for {} snakes",
-            game.snakes.len()
-        );
+        let mut known_scores = HashMap::new();
 
-        let result = bigbrain(
-            &game,
-            0,
-            0,
-            max_depth,
-            &HashMap::new(),
-            TRACE_SIM,
-        );
+        while start.elapsed() < TIME_LIMIT {
+            match bigbrain(
+                &game,
+                0,
+                0,
+                &HashMap::new(),
+                &mut known_scores,
+                start,
+                &BigbrainOptions {
+                    max_depth:  depth,
+                    time_limit: TIME_LIMIT,
+                    trace_sim:  TRACE_SIM,
+                },
+            ) {
+                Some(new_result) => result = new_result,
+                None => break,
+            }
+
+            depth += 1;
+            println!(
+                "{} ms elapsed of limit {}, going to depth {depth}...",
+                start.elapsed().as_millis(),
+                TIME_LIMIT.as_millis(),
+            );
+        }
+
+        println!("got a result from depth {depth}");
 
         result
             .direction

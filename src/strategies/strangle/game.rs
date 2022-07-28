@@ -22,7 +22,7 @@ pub enum GameType {
     TooMany,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Game {
     pub snakes:     Vec<Snake>,
     pub food:       Vec<Coord>,

@@ -1,9 +1,12 @@
-use std::collections::VecDeque;
+use std::{
+    collections::VecDeque,
+    hash::{Hash, Hasher},
+};
 
 use super::{board::Board, SnakeID};
 use crate::fightsnake::types::{Coord, Direction};
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq)]
 pub struct Snake {
     pub id:     SnakeID,
     pub body:   VecDeque<Coord>,
@@ -30,5 +33,15 @@ impl Snake {
 impl PartialEq for Snake {
     fn eq(&self, other: &Self) -> bool {
         self.id == other.id
+    }
+}
+
+impl Hash for Snake {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.id.hash(state);
+        for c in &self.body {
+            c.hash(state);
+        }
+        self.health.hash(state);
     }
 }

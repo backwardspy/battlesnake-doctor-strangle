@@ -75,7 +75,7 @@ impl fmt::Display for Direction {
     }
 }
 
-#[derive(Deserialize, Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(Deserialize, Debug, PartialEq, Eq, Clone, Copy, Hash)]
 pub struct Coord {
     pub x: i64,
     pub y: i64,

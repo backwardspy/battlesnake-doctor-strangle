@@ -7,12 +7,16 @@ const INDENT: &str = "    ";
 fn get_outfits() -> Result<(Vec<String>, Vec<String>)> {
     let row_selector = Selector::parse("section.icon-set > div.row").unwrap();
     let col_selector = Selector::parse("div.col-12.col-sm-6").unwrap();
-    let name_selector = Selector::parse("div.card-body > div.row p.text-center > small").unwrap();
+    let name_selector =
+        Selector::parse("div.card-body > div.row p.text-center > small")
+            .unwrap();
 
     let mut heads = vec![];
     let mut tails = vec![];
 
-    let resp = reqwest::blocking::get("https://play.battlesnake.com/references/customizations/")?;
+    let resp = reqwest::blocking::get(
+        "https://play.battlesnake.com/references/customizations/",
+    )?;
     let doc = Html::parse_fragment(&resp.text()?);
 
     for row in doc.select(&row_selector) {

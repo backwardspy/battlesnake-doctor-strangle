@@ -1,4 +1,11 @@
-use std::collections::{hash_map::Entry, HashMap};
+use std::{
+    collections::{
+        hash_map::{DefaultHasher, Entry},
+        HashMap,
+    },
+    hash::{Hash, Hasher},
+    time::{Duration, Instant},
+};
 
 #[cfg(debug_assertions)]
 use itertools::Itertools;
@@ -43,14 +50,31 @@ macro_rules! trace {
     ($($tts:tt)*) => {};
 }
 
+fn calculate_hash(game: &Game) -> u64 {
+    let mut hasher = DefaultHasher::new();
+    game.hash(&mut hasher);
+    hasher.finish()
+}
+
+pub struct BigbrainOptions {
+    pub max_depth: u64,
+    pub time_limit: Duration,
+    pub trace_sim: bool,
+}
+
 pub fn bigbrain(
     game: &Game,
     snake_index: usize,
     depth: u64,
-    max_depth: u64,
     moves: &HashMap<SnakeID, Direction>,
-    trace_sim: bool,
-) -> BigbrainResult {
+    known_scores: &mut HashMap<u64, HashMap<SnakeID, ScoreFactors>>,
+    start: Instant,
+    options: &BigbrainOptions,
+) -> Option<BigbrainResult> {
+    if start.elapsed() >= options.time_limit {
+        return None;
+    }
+
     #[cfg(debug_assertions)]
     let align = Indent(depth, snake_index as u64);
 
@@ -61,7 +85,7 @@ pub fn bigbrain(
          pending moves: {:?})",
         snake.id,
         depth,
-        max_depth,
+        options.max_depth,
         game.snakes.iter().map(|snake| snake.id).join(", "),
         moves
     );
@@ -83,26 +107,32 @@ pub fn bigbrain(
             "wrong number of moves to simulate game"
         );
 
-        let new_game = game.step(&moves, trace_sim);
+        let new_game = game.step(&moves, options.trace_sim);
 
         game = new_game;
         moves.clear();
 
         trace!("{align}game stepped and moves cleared.");
 
-        // score snakes still in the game
-        let mut scores: HashMap<_, _> = game
-            .snakes
-            .iter()
-            .map(|snake| (snake.id, game.score(snake, depth)))
-            .collect();
+        let hash = calculate_hash(&game);
 
-        // add bad scores for anyone who died
-        for snake in snakes_before {
-            if let Entry::Vacant(e) = scores.entry(snake.id) {
-                e.insert(ScoreFactors::dead(snake.id, depth));
+        let scores = known_scores.entry(hash).or_insert({
+            // score snakes still in the game
+            let mut scores: HashMap<_, _> = game
+                .snakes
+                .iter()
+                .map(|snake| (snake.id, game.score(snake, depth)))
+                .collect();
+
+            // add bad scores for anyone who died
+            for snake in snakes_before {
+                if let Entry::Vacant(e) = scores.entry(snake.id) {
+                    e.insert(ScoreFactors::dead(snake.id, depth));
+                }
             }
-        }
+
+            scores
+        });
 
         let mut exit = false;
 
@@ -116,14 +146,14 @@ pub fn bigbrain(
             exit = true;
         }
 
-        if depth == max_depth {
-            trace!("{align}search depth {max_depth} reached.");
+        if depth == options.max_depth {
+            trace!("{align}search depth {} reached.", options.max_depth);
             exit = true;
         }
 
         if exit {
             trace!("{align}propagating up!");
-            return BigbrainResult::inner(scores);
+            return Some(BigbrainResult::inner(scores.clone()));
         }
     }
 
@@ -148,20 +178,28 @@ pub fn bigbrain(
         trace!("{align}snake {} trying {direction}", snake.id);
 
         moves.insert(snake.id, direction);
-        let mut result = bigbrain(
+        let result = bigbrain(
             &game,
             next_snake_index,
             next_depth,
-            max_depth,
             &moves,
-            trace_sim,
+            known_scores,
+            start,
+            options,
         );
+
+        if result.is_none() {
+            trace!("{align}ran out of time, aborting!");
+            break;
+        }
+
+        let mut result = result.unwrap();
 
         // ensure we always have our own score in here
         result
             .scores
             .entry(snake.id)
-            .or_insert(ScoreFactors::dead(snake.id, depth));
+            .or_insert_with(|| ScoreFactors::dead(snake.id, depth));
 
         trace!(
             "{align}moves {:?} on depth {depth} gets the following scores:",
@@ -217,5 +255,5 @@ pub fn bigbrain(
             .unwrap_or(&ScoreFactors::dead(snake.id, depth)),
     );
 
-    BigbrainResult::outer(best_scores, best_direction)
+    Some(BigbrainResult::outer(best_scores, best_direction))
 }
