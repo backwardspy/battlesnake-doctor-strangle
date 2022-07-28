@@ -5,15 +5,15 @@ WORKDIR build
 
 COPY . .
 
-RUN cargo build --release
+RUN cargo build --release --bin snake
 
 # copy into runtime env
 FROM debian:stable-slim
 
 WORKDIR app
 
-COPY --from=build /build/target/release/battlesnake-doctor-strangle /usr/local/bin
+COPY --from=build /build/target/release/snake /usr/local/bin
 
 ENV RUST_LOG debug
 
-ENTRYPOINT ["battlesnake-doctor-strangle"]
+ENTRYPOINT ["snake"]
