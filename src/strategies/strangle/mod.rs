@@ -61,11 +61,6 @@ impl Strategy for StrangleStrategy {
             }
 
             depth += 1;
-            println!(
-                "{} ms elapsed of limit {}, going to depth {depth}...",
-                start.elapsed().as_millis(),
-                TIME_LIMIT.as_millis(),
-            );
         }
 
         println!("got a result from depth {depth}");
