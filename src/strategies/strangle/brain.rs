@@ -7,6 +7,7 @@ use std::{
     time::{Duration, Instant},
 };
 
+use color_eyre::Result;
 #[cfg(debug_assertions)]
 use itertools::Itertools;
 
@@ -24,7 +25,7 @@ pub struct BigbrainResult {
 }
 
 impl BigbrainResult {
-    fn inner(scores: BigbrainScores, depth: u64) -> Self {
+    const fn inner(scores: BigbrainScores, depth: u64) -> Self {
         Self {
             scores,
             direction: None,
@@ -32,7 +33,11 @@ impl BigbrainResult {
         }
     }
 
-    fn outer(scores: BigbrainScores, direction: Direction, depth: u64) -> Self {
+    const fn outer(
+        scores: BigbrainScores,
+        direction: Direction,
+        depth: u64,
+    ) -> Self {
         Self {
             scores,
             direction: Some(direction),
@@ -62,9 +67,19 @@ fn calculate_hash(game: &Game) -> u64 {
 pub struct BigbrainOptions {
     pub max_depth:  u64,
     pub time_limit: Duration,
-    pub trace_sim:  bool,
 }
 
+fn should_exit(game: &Game, depth: u64, max_depth: u64) -> bool {
+    !game.snakes.iter().any(|s| s.id == ME)
+        || game.multisnake && game.snakes.len() <= 1
+        || depth == max_depth
+}
+
+#[allow(clippy::too_many_lines)]
+/// # Errors
+///
+/// Can fail if something is wrong with the input data, for example if a snake
+/// has no body.
 pub fn bigbrain(
     game: &Game,
     snake_index: usize,
@@ -73,9 +88,9 @@ pub fn bigbrain(
     known_scores: &mut HashMap<u64, HashMap<SnakeID, ScoreFactors>>,
     start: Instant,
     options: &BigbrainOptions,
-) -> Option<BigbrainResult> {
+) -> Result<Option<BigbrainResult>> {
     if start.elapsed() >= options.time_limit {
-        return None;
+        return Ok(None);
     }
 
     #[cfg(debug_assertions)]
@@ -103,12 +118,8 @@ pub fn bigbrain(
         moves.retain(|snake_id, _| {
             game.snakes.iter().any(|snake| snake.id == *snake_id)
         });
-        assert!(
-            moves.len() == game.snakes.len(),
-            "wrong number of moves to simulate game"
-        );
 
-        let new_game = game.step(&moves, options.trace_sim);
+        let new_game = game.step(&moves)?;
 
         game = new_game;
         moves.clear();
@@ -117,24 +128,7 @@ pub fn bigbrain(
 
         let hash = calculate_hash(&game);
 
-        let mut exit = false;
-
-        if !game.snakes.iter().any(|s| s.id == ME) {
-            trace!("{align}this has killed our snake.");
-            exit = true;
-        }
-
-        if game.multisnake && game.snakes.len() <= 1 {
-            trace!("{align}not enough snakes to continue multisnake game.");
-            exit = true;
-        }
-
-        if depth == options.max_depth {
-            trace!("{align}search depth {} reached.", options.max_depth);
-            exit = true;
-        }
-
-        if exit {
+        if should_exit(&game, depth, options.max_depth) {
             let scores = known_scores.entry(hash).or_insert({
                 // score snakes still in the game
                 let mut scores: HashMap<_, _> = game
@@ -154,7 +148,7 @@ pub fn bigbrain(
             });
 
             trace!("{align}propagating up!");
-            return Some(BigbrainResult::inner(scores.clone(), depth));
+            return Ok(Some(BigbrainResult::inner(scores.clone(), depth)));
         }
     }
 
@@ -191,14 +185,14 @@ pub fn bigbrain(
             known_scores,
             start,
             options,
-        );
+        )?;
 
-        if result.is_none() {
+        let mut result = if let Some(result) = result {
+            result
+        } else {
             trace!("{align}ran out of time, aborting!");
-            return None;
-        }
-
-        let mut result = result.unwrap();
+            return Ok(None);
+        };
 
         // ensure we always have our own score in here
         result
@@ -211,27 +205,7 @@ pub fn bigbrain(
             moves
         );
 
-        #[cfg(debug_assertions)]
-        for score in result.scores.values() {
-            trace!("{align}  * {score}");
-        }
-
-        if !has_best_result {
-            trace!(
-                "{align}got our first scores for this depth: {:?}",
-                result
-                    .scores
-                    .iter()
-                    .map(|(snake_id, score)| format!(
-                        "snake {snake_id}: {}",
-                        score.calculate(result.depth)
-                    ))
-                    .join(", ")
-            );
-            best_result = result;
-            best_direction = direction;
-            has_best_result = true;
-        } else {
+        if has_best_result {
             let score = result
                 .scores
                 .get(&snake.id)
@@ -250,6 +224,21 @@ pub fn bigbrain(
             } else {
                 trace!("{align}worse...");
             }
+        } else {
+            trace!(
+                "{align}got our first scores for this depth: {:?}",
+                result
+                    .scores
+                    .iter()
+                    .map(|(snake_id, score)| format!(
+                        "snake {snake_id}: {}",
+                        score.calculate(result.depth)
+                    ))
+                    .join(", ")
+            );
+            best_result = result;
+            best_direction = direction;
+            has_best_result = true;
         }
     }
 
@@ -264,9 +253,9 @@ pub fn bigbrain(
             .calculate(best_result.depth)
     );
 
-    Some(BigbrainResult::outer(
+    Ok(Some(BigbrainResult::outer(
         best_result.scores,
         best_direction,
         best_result.depth,
-    ))
+    )))
 }

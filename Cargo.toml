@@ -16,3 +16,4 @@ rand = "0"
 reqwest = {version = "0", features = ["blocking"] }
 convert_case = "0"
 scraper = "0"
+color-eyre = "0"

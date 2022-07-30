@@ -1,3 +1,7 @@
+// clippy use_self is very broken at the moment.
+// TODO: periodically uncomment this to see if there's any legitimate reports.
+#![allow(clippy::use_self)]
+
 use std::{fmt, slice::Iter};
 
 use serde::{Deserialize, Serialize};
@@ -18,7 +22,7 @@ pub enum Direction {
 }
 
 impl Direction {
-    pub fn iter() -> Iter<'static, Direction> {
+    pub fn iter() -> Iter<'static, Self> {
         static DIRECTIONS: [Direction; 4] = [
             Direction::Left,
             Direction::Right,
@@ -28,16 +32,18 @@ impl Direction {
         DIRECTIONS.iter()
     }
 
-    pub fn opposite(&self) -> Direction {
+    #[must_use]
+    pub const fn opposite(&self) -> Self {
         match self {
-            Direction::Left => Direction::Right,
-            Direction::Right => Direction::Left,
-            Direction::Up => Direction::Down,
-            Direction::Down => Direction::Up,
+            Self::Left => Self::Right,
+            Self::Right => Self::Left,
+            Self::Up => Self::Down,
+            Self::Down => Self::Up,
         }
     }
 
-    pub fn between(from: Coord, to: Coord) -> Option<Direction> {
+    #[must_use]
+    pub const fn between(from: Coord, to: Coord) -> Option<Self> {
         // gets the most significant direction between two coordinates.
         // if the coordinates are the same, assumes up.
         // if the coordinates are exactly diagonal, gives the vertical direction
@@ -46,14 +52,14 @@ impl Direction {
         let dy = to.y - from.y;
         if dx.abs() > dy.abs() {
             match dx.signum() {
-                1 => Some(Direction::Right),
-                -1 => Some(Direction::Left),
+                1 => Some(Self::Right),
+                -1 => Some(Self::Left),
                 _ => None,
             }
         } else {
             match dy.signum() {
-                1 => Some(Direction::Up),
-                -1 => Some(Direction::Down),
+                1 => Some(Self::Up),
+                -1 => Some(Self::Down),
                 _ => None,
             }
         }
@@ -66,10 +72,10 @@ impl fmt::Display for Direction {
             f,
             "{}",
             match self {
-                Direction::Left => "Left",
-                Direction::Right => "Right",
-                Direction::Up => "Up",
-                Direction::Down => "Down",
+                Self::Left => "Left",
+                Self::Right => "Right",
+                Self::Up => "Up",
+                Self::Down => "Down",
             }
         )
     }
@@ -88,8 +94,9 @@ impl fmt::Display for Coord {
 }
 
 impl Coord {
-    pub fn neighbour(&self, direction: Direction) -> Coord {
-        Coord {
+    #[must_use]
+    pub const fn neighbour(&self, direction: Direction) -> Self {
+        Self {
             x: self.x
                 + match direction {
                     Direction::Right => 1,

@@ -10,6 +10,8 @@ use std::{
     time::{Duration, Instant},
 };
 
+use color_eyre::{eyre::eyre, Result};
+
 use self::game::Game;
 use super::Strategy;
 use crate::{
@@ -19,18 +21,18 @@ use crate::{
 
 pub const TRACE_SIM: bool = false;
 
-pub struct StrangleStrategy;
+pub struct Strangle;
 
 type SnakeID = usize;
 const ME: SnakeID = 0;
 
-impl Strategy for StrangleStrategy {
-    fn get_movement(&self, game_state: GameState) -> Direction {
-        let start = Instant::now();
-
+impl Strategy for Strangle {
+    fn get_movement(&self, game_state: GameState) -> Result<Direction> {
         const TIME_LIMIT: Duration = Duration::from_millis(400);
 
-        let game = Game::from(game_state);
+        let start = Instant::now();
+
+        let game = Game::try_from(game_state)?;
 
         let mut depth = 1;
 
@@ -53,9 +55,8 @@ impl Strategy for StrangleStrategy {
                 &BigbrainOptions {
                     max_depth:  depth,
                     time_limit: TIME_LIMIT,
-                    trace_sim:  TRACE_SIM,
                 },
-            ) {
+            )? {
                 Some(new_result) => {
                     result = new_result;
                     if result.depth < depth {
@@ -74,8 +75,8 @@ impl Strategy for StrangleStrategy {
 
         println!("got a result from depth {depth}");
 
-        result
-            .direction
-            .expect("bigbrain must return a direction from the root invocation")
+        result.direction.ok_or(eyre!(
+            "bigbrain must return a direction from the root invocation"
+        ))
     }
 }

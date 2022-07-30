@@ -19,17 +19,17 @@ impl ScoreFactors {
     const HEALTH_WEIGHT: i64 = 100;
     const LARGE_SNAKE_DISTANCE_MAX: i64 = 3;
     const LARGE_SNAKE_DISTANCE_WEIGHT: i64 = 0;
-    const REMAINING_OPPONENTS_WEIGHT: i64 = -100000;
+    const REMAINING_OPPONENTS_WEIGHT: i64 = -100_000;
 
-    pub fn alive(
+    pub const fn alive(
         snake_id: SnakeID,
         health: i64,
         closest_food: i64,
         closest_larger_snake: i64,
         remaining_opponents: i64,
         multisnake: bool,
-    ) -> ScoreFactors {
-        ScoreFactors {
+    ) -> Self {
+        Self {
             snake_id,
             health,
             dead: false,
@@ -40,7 +40,7 @@ impl ScoreFactors {
         }
     }
 
-    pub fn dead(snake_id: SnakeID, multisnake: bool) -> Self {
+    pub const fn dead(snake_id: SnakeID, multisnake: bool) -> Self {
         Self {
             snake_id,
             health: 0,
@@ -53,12 +53,13 @@ impl ScoreFactors {
     }
 
     pub fn calculate(&self, depth: u64) -> i64 {
+        let depth = i64::try_from(depth).unwrap_or(i64::MAX);
         if self.dead {
             // die as late as possible
-            -100000000 + depth as i64 * Self::DEPTH_WEIGHT
+            -100_000_000 + depth * Self::DEPTH_WEIGHT
         } else if self.remaining_opponents == 0 && self.multisnake {
             // win as early as possible
-            100000000 - depth as i64 * Self::DEPTH_WEIGHT
+            100_000_000 - depth * Self::DEPTH_WEIGHT
         } else {
             // otherwise, try to stay alive
             self.health * Self::HEALTH_WEIGHT
@@ -68,7 +69,7 @@ impl ScoreFactors {
                     .min(Self::LARGE_SNAKE_DISTANCE_MAX)
                     * Self::LARGE_SNAKE_DISTANCE_WEIGHT
                 + self.remaining_opponents * Self::REMAINING_OPPONENTS_WEIGHT
-                + depth as i64 * Self::DEPTH_WEIGHT
+                + depth * Self::DEPTH_WEIGHT
         }
     }
 }

@@ -4,14 +4,18 @@ use battlesnake_doctor_strangle::{
         models::{GameState, Movement, Status},
         types::{APIVersion, Head, Tail},
     },
-    strategies::{StrangleStrategy, Strategy},
+    strategies::{Strangle, Strategy},
 };
-use log::info;
+use log::{error, info};
 use warp::{http::Method, Filter};
 
 const NAME: &str = env!("CARGO_PKG_NAME");
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const AUTHOR: &str = env!("CARGO_PKG_AUTHORS");
+
+#[derive(Debug)]
+struct InternalError;
+impl warp::reject::Reject for InternalError {}
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -50,12 +54,19 @@ async fn main() -> Result<()> {
     let do_move = warp::post()
         .and(warp::path("move"))
         .and(warp::body::json())
-        .map(|game_state: GameState| {
-            let movement = StrangleStrategy.get_movement(game_state);
-            warp::reply::json(&Movement {
-                movement,
-                shout: None,
-            })
+        .and_then(|game_state: GameState| async move {
+            Strangle
+                .get_movement(game_state)
+                .map(|movement| {
+                    warp::reply::json(&Movement {
+                        movement,
+                        shout: None,
+                    })
+                })
+                .map_err(|e| {
+                    error!("failed to get move: {}", e);
+                    warp::reject::custom(InternalError)
+                })
         });
 
     let api = healthz.or(start).or(do_move).with(cors).with(logging);
