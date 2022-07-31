@@ -9,11 +9,14 @@ use super::{
     SnakeID,
     ME,
 };
-use crate::fightsnake::{
-    constants::MAX_HEALTH,
-    models::GameState,
-    types::{Coord, Direction},
-    utils::manhattan_distance,
+use crate::{
+    fightsnake::{
+        constants::MAX_HEALTH,
+        models::GameState,
+        types::{Coord, Direction},
+        utils::manhattan_distance,
+    },
+    strategies::strangle::score_factors::DeathKind,
 };
 
 pub enum Type {
@@ -67,7 +70,10 @@ impl Game {
         }
     }
 
-    pub fn step(&self, moves: &HashMap<SnakeID, Direction>) -> Result<Self> {
+    pub fn step(
+        &self,
+        moves: &HashMap<SnakeID, Direction>,
+    ) -> Result<(Self, HashMap<SnakeID, DeathKind>)> {
         assert!(moves.len() == self.snakes.len(), "wrong number of moves");
 
         let mut step = self.clone();
@@ -92,11 +98,14 @@ impl Game {
         let freespace = step.calculate_free_space()?;
 
         // step 2 - remove eliminated battlesnakes
+        let mut death_kind_map = HashMap::new();
+
         step.prev_snakes.clear();
         step.prev_snakes.extend_from_slice(&step.snakes);
 
         step.snakes.retain(|snake| {
             if snake.health <= 0 {
+                death_kind_map.insert(snake.id, DeathKind::Normal);
                 return false;
             }
 
@@ -106,9 +115,11 @@ impl Game {
                 .expect("invalid freespace index")
             {
                 if !freespace[index] {
+                    death_kind_map.insert(snake.id, DeathKind::Normal);
                     return false;
                 }
             } else {
+                death_kind_map.insert(snake.id, DeathKind::Normal);
                 return false;
             }
 
@@ -127,17 +138,19 @@ impl Game {
                     // same-size head-to-head, and therefore that space is safe
                     // to move into. it's often not.
                     if a.body.len() == b.body.len() {
+                        // b can never be ME, because i'm always first in the
+                        // list.
                         if a.id == ME {
+                            death_kind_map.insert(a.id, DeathKind::Honourable);
                             keep[ai] = false;
-                        }
-                        if b.id == ME {
-                            keep[bi] = false;
                         }
                     } else {
                         if b.body.len() >= a.body.len() {
+                            death_kind_map.insert(a.id, DeathKind::Honourable);
                             keep[ai] = false;
                         }
                         if a.body.len() >= b.body.len() {
+                            death_kind_map.insert(b.id, DeathKind::Honourable);
                             keep[bi] = false;
                         }
                     }
@@ -179,13 +192,13 @@ impl Game {
         // we can't predict this. we assume none will spawn, and if it does then
         // we'll adapt to it on the next real turn.
 
-        Ok(step)
+        Ok((step, death_kind_map))
     }
 
-    pub fn score(&self, snake: &Snake) -> ScoreFactors {
+    pub fn score(&self, snake: &Snake, death_kind: DeathKind) -> ScoreFactors {
         if !self.snakes.contains(snake) {
             // we really don't want to die
-            return ScoreFactors::dead(snake.id, self.multisnake);
+            return ScoreFactors::dead(snake.id, death_kind, self.multisnake);
         }
 
         let head = snake.body[0];

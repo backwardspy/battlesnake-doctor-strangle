@@ -7,14 +7,17 @@ use std::{
     time::{Duration, Instant},
 };
 
-use color_eyre::Result;
+use color_eyre::{eyre::eyre, Result};
 #[cfg(debug_assertions)]
 use itertools::Itertools;
 
 #[cfg(debug_assertions)]
 use super::utils::Indent;
 use super::{game::Game, score_factors::ScoreFactors, SnakeID, ME};
-use crate::fightsnake::types::Direction;
+use crate::{
+    fightsnake::types::Direction,
+    strategies::strangle::score_factors::DeathKind,
+};
 
 type BigbrainScores = HashMap<SnakeID, ScoreFactors>;
 
@@ -119,7 +122,7 @@ pub fn bigbrain(
             game.snakes.iter().any(|snake| snake.id == *snake_id)
         });
 
-        let new_game = game.step(&moves)?;
+        let (new_game, death_kind_map) = game.step(&moves)?;
 
         game = new_game;
         moves.clear();
@@ -133,13 +136,21 @@ pub fn bigbrain(
                 let mut scores: HashMap<_, _> = game
                     .snakes
                     .iter()
-                    .map(|snake| (snake.id, game.score(snake)))
+                    .map(|snake| {
+                        (snake.id, game.score(snake, DeathKind::Normal))
+                    })
                     .collect();
 
                 // add bad scores for anyone who died
                 for snake in &game.prev_snakes {
                     if let Entry::Vacant(e) = scores.entry(snake.id) {
-                        e.insert(ScoreFactors::dead(snake.id, game.multisnake));
+                        e.insert(ScoreFactors::dead(
+                            snake.id,
+                            *death_kind_map.get(&snake.id).ok_or(eyre!(
+                                "snake died without a death_kind_map entry"
+                            ))?,
+                            game.multisnake,
+                        ));
                     }
                 }
 
@@ -159,7 +170,14 @@ pub fn bigbrain(
         game.snakes
             .iter()
             .map(|snake| {
-                (snake.id, ScoreFactors::dead(snake.id, game.multisnake))
+                (
+                    snake.id,
+                    ScoreFactors::dead(
+                        snake.id,
+                        DeathKind::Normal,
+                        game.multisnake,
+                    ),
+                )
             })
             .collect(),
         depth,
@@ -194,10 +212,9 @@ pub fn bigbrain(
         };
 
         // ensure we always have our own score in here
-        result
-            .scores
-            .entry(snake.id)
-            .or_insert_with(|| ScoreFactors::dead(snake.id, game.multisnake));
+        result.scores.entry(snake.id).or_insert_with(|| {
+            ScoreFactors::dead(snake.id, DeathKind::Normal, game.multisnake)
+        });
 
         trace!(
             "{align}moves {:?} on depth {depth} gets the following scores:\n{}",
@@ -216,7 +233,11 @@ pub fn bigbrain(
             let score = result
                 .scores
                 .get(&snake.id)
-                .unwrap_or(&ScoreFactors::dead(snake.id, game.multisnake))
+                .unwrap_or(&ScoreFactors::dead(
+                    snake.id,
+                    DeathKind::Normal,
+                    game.multisnake,
+                ))
                 .calculate(result.depth);
 
             trace!("{align}comparing {score} against previous best...");
@@ -256,7 +277,11 @@ pub fn bigbrain(
         best_result
             .scores
             .get(&snake.id)
-            .unwrap_or(&ScoreFactors::dead(snake.id, game.multisnake))
+            .unwrap_or(&ScoreFactors::dead(
+                snake.id,
+                DeathKind::Normal,
+                game.multisnake
+            ))
             .calculate(best_result.depth)
     );
 

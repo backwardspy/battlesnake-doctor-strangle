@@ -1,4 +1,3 @@
-use color_eyre::Result;
 use battlesnake_doctor_strangle::{
     fightsnake::{
         models::{GameState, Movement, Status},
@@ -6,6 +5,7 @@ use battlesnake_doctor_strangle::{
     },
     strategies::{Strangle, Strategy},
 };
+use color_eyre::Result;
 use log::{error, info};
 use warp::{http::Method, Filter};
 
