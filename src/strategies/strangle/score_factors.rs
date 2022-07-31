@@ -16,14 +16,14 @@ pub struct ScoreFactors {
 }
 
 impl ScoreFactors {
-    const CLOSEST_FOOD_WEIGHT: i64 = -1000;
+    const CLOSEST_FOOD_WEIGHT: i64 = -500;
     const DEPTH_WEIGHT: i64 = 5000;
-    const HEALTH_WEIGHT: i64 = 500;
+    const HEALTH_WEIGHT: i64 = 1500;
     const LARGE_SNAKE_DISTANCE_MAX: i64 = 3;
     const LARGE_SNAKE_DISTANCE_WEIGHT: i64 = 10_000;
     const LENGTH_WEIGHT: i64 = 2500;
     const REMAINING_OPPONENTS_WEIGHT: i64 = -100_000;
-    const SMALL_SNAKE_DISTANCE_WEIGHT: i64 = -10_000;
+    const SMALL_SNAKE_DISTANCE_WEIGHT: i64 = -50_000;
 
     #[allow(clippy::too_many_arguments)]
     pub const fn alive(
