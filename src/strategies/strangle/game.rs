@@ -194,11 +194,23 @@ impl Game {
             .min()
             .unwrap_or(0);
 
+        let closest_smaller_snake = self
+            .snakes
+            .iter()
+            .filter(|other| {
+                other.id != snake.id && other.body.len() < snake.body.len()
+            })
+            .map(|other| manhattan_distance(head, other.body[0]))
+            .min()
+            .unwrap_or(0);
+
         ScoreFactors::alive(
             snake.id,
             snake.health,
+            snake.body.len() as i64,
             closest_food,
             closest_larger_snake,
+            closest_smaller_snake,
             self.snakes.len() as i64 - 1,
             self.multisnake,
         )
