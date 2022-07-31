@@ -16,14 +16,14 @@ pub struct ScoreFactors {
 }
 
 impl ScoreFactors {
-    const CLOSEST_FOOD_WEIGHT: i64 = -500;
-    const DEPTH_WEIGHT: i64 = 5000;
-    const HEALTH_WEIGHT: i64 = 1500;
+    const CLOSEST_FOOD_WEIGHT: i64 = -250;
+    const DEPTH_WEIGHT: i64 = 100;
+    const HEALTH_WEIGHT: i64 = 500;
     const LARGE_SNAKE_DISTANCE_MAX: i64 = 3;
-    const LARGE_SNAKE_DISTANCE_WEIGHT: i64 = 10_000;
-    const LENGTH_WEIGHT: i64 = 2500;
-    const REMAINING_OPPONENTS_WEIGHT: i64 = -100_000;
-    const SMALL_SNAKE_DISTANCE_WEIGHT: i64 = -50_000;
+    const LARGE_SNAKE_DISTANCE_WEIGHT: i64 = 500;
+    const LENGTH_WEIGHT: i64 = 1000;
+    const REMAINING_OPPONENTS_WEIGHT: i64 = -10_000;
+    const SMALL_SNAKE_DISTANCE_WEIGHT: i64 = 2500;
 
     #[allow(clippy::too_many_arguments)]
     pub const fn alive(
@@ -70,7 +70,7 @@ impl ScoreFactors {
             -100_000_000 + depth * Self::DEPTH_WEIGHT
         } else if self.remaining_opponents == 0 && self.multisnake {
             // win as early as possible
-            100_000_000 - depth * Self::DEPTH_WEIGHT
+            10_000_000 - depth * Self::DEPTH_WEIGHT
         } else {
             // otherwise, try to stay alive
             self.health * Self::HEALTH_WEIGHT
@@ -94,19 +94,19 @@ impl fmt::Display for ScoreFactors {
         } else {
             write!(
                 f,
-                "snake {}:
-                * {} health
-                * {} length
-                * {} turns from closest food
-                * {} turns from closest larger snake (limit: {},
-                * {} turns from closest smaller snake
+                "snake {}:\n\
+                * {} health\n\
+                * {} length\n\
+                * {} turns from closest food\n\
+                * {} turns from closest larger snake (limited to: {})\n\
+                * {} turns from closest smaller snake\n\
                 * {} remaining opponents)",
                 self.snake_id,
                 self.health,
                 self.length,
                 self.closest_food,
                 self.closest_larger_snake,
-                Self::LARGE_SNAKE_DISTANCE_MAX,
+                self.closest_larger_snake.min(Self::LARGE_SNAKE_DISTANCE_MAX),
                 self.closest_smaller_snake,
                 self.remaining_opponents
             )

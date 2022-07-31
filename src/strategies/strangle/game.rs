@@ -118,13 +118,28 @@ impl Game {
         // step 2a resolve head-to-head collisions
         let mut keep = vec![true; step.snakes.len()];
         for (ai, a) in step.snakes.iter().enumerate() {
-            for (bi, b) in step.snakes[ai + 1..].iter().enumerate() {
+            for (bi, b) in step.snakes.iter().enumerate().skip(ai + 1) {
                 if a.body[0] == b.body[0] {
-                    if b.body.len() >= a.body.len() {
-                        keep[ai] = false;
-                    }
-                    if a.body.len() >= b.body.len() {
-                        keep[bi] = false;
+                    // horrible hack alert!
+                    // we pretend that only we can die by same-size head-to-head
+                    // collisions. if we don't do this, the
+                    // snake assumes that nobody else would ever go for a
+                    // same-size head-to-head, and therefore that space is safe
+                    // to move into. it's often not.
+                    if a.body.len() == b.body.len() {
+                        if a.id == ME {
+                            keep[ai] = false;
+                        }
+                        if b.id == ME {
+                            keep[bi] = false;
+                        }
+                    } else {
+                        if b.body.len() >= a.body.len() {
+                            keep[ai] = false;
+                        }
+                        if a.body.len() >= b.body.len() {
+                            keep[bi] = false;
+                        }
                     }
                 }
             }

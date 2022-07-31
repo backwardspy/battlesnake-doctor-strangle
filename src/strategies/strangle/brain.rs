@@ -126,9 +126,8 @@ pub fn bigbrain(
 
         trace!("{align}game stepped and moves cleared.");
 
-        let hash = calculate_hash(&game);
-
         if should_exit(&game, depth, options.max_depth) {
+            let hash = calculate_hash(&game);
             let scores = known_scores.entry(hash).or_insert({
                 // score snakes still in the game
                 let mut scores: HashMap<_, _> = game
@@ -201,8 +200,16 @@ pub fn bigbrain(
             .or_insert_with(|| ScoreFactors::dead(snake.id, game.multisnake));
 
         trace!(
-            "{align}moves {:?} on depth {depth} gets the following scores:",
-            moves
+            "{align}moves {:?} on depth {depth} gets the following scores:\n{}",
+            moves,
+            result
+                .scores
+                .iter()
+                .map(|(snake_id, score)| format!(
+                    "{snake_id}: {}\n{score}",
+                    score.calculate(result.depth)
+                ))
+                .join("\n"),
         );
 
         if has_best_result {
