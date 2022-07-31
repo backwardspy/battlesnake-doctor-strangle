@@ -1,4 +1,4 @@
-use anyhow::Result;
+use color_eyre::Result;
 use convert_case::{Case, Casing};
 use scraper::{Html, Selector};
 
@@ -46,6 +46,8 @@ fn print_enum(name: &str, members: &Vec<String>) {
 }
 
 fn main() -> Result<()> {
+    color_eyre::install()?;
+
     let (heads, tails) = get_outfits()?;
 
     print_enum("head", &heads);

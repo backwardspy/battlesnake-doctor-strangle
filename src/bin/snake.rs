@@ -1,4 +1,4 @@
-use anyhow::Result;
+use color_eyre::Result;
 use battlesnake_doctor_strangle::{
     fightsnake::{
         models::{GameState, Movement, Status},
@@ -20,6 +20,7 @@ impl warp::reject::Reject for InternalError {}
 #[tokio::main]
 async fn main() -> Result<()> {
     pretty_env_logger::init();
+    color_eyre::install()?;
 
     #[cfg(debug_assertions)]
     info!("running in debug mode");
