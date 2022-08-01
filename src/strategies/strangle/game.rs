@@ -213,7 +213,13 @@ impl Game {
             ));
         }
 
-        let available_squares = self.floodfill(freespace, snake.body[0])?;
+        // floodfill is too expensive to run with more than 4 snakes.
+        let available_squares = if self.snakes.len() <= 4 {
+            self.floodfill(freespace, snake.body[0])?
+        } else {
+            0
+        };
+
         let center_dist = manhattan_distance(
             snake.body[0],
             Coord {
@@ -291,7 +297,7 @@ impl Game {
             }
         }
 
-        Ok(visited.len() as i64)
+        Ok(visited.iter().filter(|v| **v).count() as i64)
     }
 }
 
