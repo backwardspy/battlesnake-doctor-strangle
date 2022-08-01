@@ -1,4 +1,7 @@
-use std::{collections::HashMap, fmt};
+use std::{
+    collections::{HashMap, VecDeque},
+    fmt,
+};
 
 use color_eyre::{eyre::eyre, Report, Result};
 
@@ -73,7 +76,7 @@ impl Game {
     pub fn step(
         &self,
         moves: &HashMap<SnakeID, Direction>,
-    ) -> Result<(Self, HashMap<SnakeID, DeathKind>)> {
+    ) -> Result<(Self, Vec<bool>, HashMap<SnakeID, DeathKind>)> {
         assert!(moves.len() == self.snakes.len(), "wrong number of moves");
 
         let mut step = self.clone();
@@ -192,13 +195,22 @@ impl Game {
         // we can't predict this. we assume none will spawn, and if it does then
         // we'll adapt to it on the next real turn.
 
-        Ok((step, death_kind_map))
+        Ok((step, freespace, death_kind_map))
     }
 
-    pub fn score(&self, snake: &Snake, death_kind: DeathKind) -> ScoreFactors {
+    pub fn score(
+        &self,
+        snake: &Snake,
+        freespace: &[bool],
+        death_kind: DeathKind,
+    ) -> Result<ScoreFactors> {
         if !self.snakes.contains(snake) {
             // we really don't want to die
-            return ScoreFactors::dead(snake.id, death_kind, self.multisnake);
+            return Ok(ScoreFactors::dead(
+                snake.id,
+                death_kind,
+                self.multisnake,
+            ));
         }
 
         let head = snake.body[0];
@@ -232,7 +244,9 @@ impl Game {
             .min()
             .unwrap_or(0);
 
-        ScoreFactors::alive(
+        let available_squares = self.floodfill(freespace, snake.body[0])?;
+
+        Ok(ScoreFactors::alive(
             snake.id,
             snake.health,
             snake.body.len() as i64,
@@ -240,13 +254,18 @@ impl Game {
             closest_larger_snake,
             closest_smaller_snake,
             self.snakes.len() as i64 - 1,
+            available_squares,
             self.multisnake,
-        )
+        ))
+    }
+
+    fn index(&self, c: Coord) -> Result<usize> {
+        Ok(usize::try_from(c.x + c.y * self.board.width)?)
     }
 
     fn freespace_index(&self, coord: Coord) -> Result<Option<usize>> {
         if self.board.contains(coord) {
-            Ok(Some(usize::try_from(coord.y * self.board.width + coord.x)?))
+            Ok(Some(self.index(coord)?))
         } else {
             Ok(None)
         }
@@ -272,6 +291,33 @@ impl Game {
         }
 
         Ok(freespace)
+    }
+
+    fn is_space_free(&self, freespace: &[bool], coord: Coord) -> Result<bool> {
+        Ok(self
+            .freespace_index(coord)?
+            .map_or(false, |index| freespace[index]))
+    }
+
+    fn floodfill(&self, freespace: &[bool], seed: Coord) -> Result<i64> {
+        let size = usize::try_from(self.board.width * self.board.height)?;
+        let mut visited = vec![false; size];
+        let mut queue = VecDeque::with_capacity(size);
+        queue.push_back(seed);
+
+        while let Some(c) = queue.pop_front() {
+            visited[self.index(c)?] = true;
+            for d in Direction::iter() {
+                let neighbour = c.neighbour(*d);
+                if self.is_space_free(freespace, neighbour)?
+                    && !visited[self.index(neighbour)?]
+                {
+                    queue.push_back(neighbour);
+                }
+            }
+        }
+
+        Ok(visited.len() as i64)
     }
 }
 

@@ -19,10 +19,12 @@ pub struct ScoreFactors {
     pub closest_larger_snake:  i64,
     pub closest_smaller_snake: i64,
     pub remaining_opponents:   i64,
+    pub available_squares:     i64,
     pub multisnake:            bool,
 }
 
 impl ScoreFactors {
+    const AVAILABLE_SQUARES_WEIGHT: i64 = 1500;
     const CLOSEST_FOOD_WEIGHT: i64 = -250;
     const DEPTH_WEIGHT: i64 = 100;
     const HEALTH_WEIGHT: i64 = 500;
@@ -41,6 +43,7 @@ impl ScoreFactors {
         closest_larger_snake: i64,
         closest_smaller_snake: i64,
         remaining_opponents: i64,
+        available_squares: i64,
         multisnake: bool,
     ) -> Self {
         Self {
@@ -53,6 +56,7 @@ impl ScoreFactors {
             closest_larger_snake,
             closest_smaller_snake,
             remaining_opponents,
+            available_squares,
             multisnake,
         }
     }
@@ -72,6 +76,7 @@ impl ScoreFactors {
             closest_larger_snake: 0,
             closest_smaller_snake: 0,
             remaining_opponents: 0,
+            available_squares: 0,
             multisnake,
         }
     }
@@ -100,6 +105,7 @@ impl ScoreFactors {
                     * Self::LARGE_SNAKE_DISTANCE_WEIGHT
                 + self.closest_smaller_snake * Self::SMALL_SNAKE_DISTANCE_WEIGHT
                 + self.remaining_opponents * Self::REMAINING_OPPONENTS_WEIGHT
+                + self.available_squares * Self::AVAILABLE_SQUARES_WEIGHT
                 + depth * Self::DEPTH_WEIGHT
         }
     }
@@ -115,7 +121,7 @@ impl fmt::Display for ScoreFactors {
                 "snake {}:\n* {} health\n* {} length\n* {} turns from closest \
                  food\n* {} turns from closest larger snake (limited to: \
                  {})\n* {} turns from closest smaller snake\n* {} remaining \
-                 opponents)",
+                 opponents\n* {} available squares",
                 self.snake_id,
                 self.health,
                 self.length,
@@ -124,7 +130,8 @@ impl fmt::Display for ScoreFactors {
                 self.closest_larger_snake
                     .min(Self::LARGE_SNAKE_DISTANCE_MAX),
                 self.closest_smaller_snake,
-                self.remaining_opponents
+                self.remaining_opponents,
+                self.available_squares,
             )
         }
     }

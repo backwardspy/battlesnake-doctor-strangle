@@ -122,7 +122,7 @@ pub fn bigbrain(
             game.snakes.iter().any(|snake| snake.id == *snake_id)
         });
 
-        let (new_game, death_kind_map) = game.step(&moves)?;
+        let (new_game, freespace, death_kind_map) = game.step(&moves)?;
 
         game = new_game;
         moves.clear();
@@ -133,13 +133,13 @@ pub fn bigbrain(
             let hash = calculate_hash(&game);
             let scores = known_scores.entry(hash).or_insert({
                 // score snakes still in the game
-                let mut scores: HashMap<_, _> = game
-                    .snakes
-                    .iter()
-                    .map(|snake| {
-                        (snake.id, game.score(snake, DeathKind::Normal))
-                    })
-                    .collect();
+                let mut scores = HashMap::new();
+                for snake in &game.snakes {
+                    scores.insert(
+                        snake.id,
+                        game.score(snake, &freespace, DeathKind::Normal)?,
+                    );
+                }
 
                 // add bad scores for anyone who died
                 for snake in &game.prev_snakes {
