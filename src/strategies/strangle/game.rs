@@ -213,46 +213,20 @@ impl Game {
             ));
         }
 
-        let head = snake.body[0];
-
-        // measure against prev_food, otherwise eating food removes it and thus
-        // puts us far away from the nearest food.
-        let closest_food = self
-            .food
-            .iter()
-            .map(|food| manhattan_distance(*food, head))
-            .min()
-            .unwrap_or(0);
-
-        let closest_larger_snake = self
-            .snakes
-            .iter()
-            .filter(|other| {
-                other.id != snake.id && other.body.len() >= snake.body.len()
-            })
-            .map(|other| manhattan_distance(head, other.body[0]))
-            .min()
-            .unwrap_or(0);
-
-        let closest_smaller_snake = self
-            .snakes
-            .iter()
-            .filter(|other| {
-                other.id != snake.id && other.body.len() < snake.body.len()
-            })
-            .map(|other| manhattan_distance(head, other.body[0]))
-            .min()
-            .unwrap_or(0);
-
         let available_squares = self.floodfill(freespace, snake.body[0])?;
+        let center_dist = manhattan_distance(
+            snake.body[0],
+            Coord {
+                x: self.board.width / 2,
+                y: self.board.height / 2,
+            },
+        );
 
         Ok(ScoreFactors::alive(
             snake.id,
             snake.health,
             snake.body.len() as i64,
-            closest_food,
-            closest_larger_snake,
-            closest_smaller_snake,
+            center_dist,
             self.snakes.len() as i64 - 1,
             available_squares,
             self.multisnake,
