@@ -22,11 +22,11 @@ pub struct ScoreFactors {
 }
 
 impl ScoreFactors {
-    const AVAILABLE_SQUARES_WEIGHT: i64 = 1500;
+    const AVAILABLE_SQUARES_WEIGHT: i64 = 2500;
     const CENTER_DIST_WEIGHT: i64 = 250;
     const DEPTH_WEIGHT: i64 = 100;
     const HEALTH_WEIGHT: i64 = 200;
-    const LENGTH_WEIGHT: i64 = 5000;
+    const LENGTH_WEIGHT: i64 = 1500;
     const REMAINING_OPPONENTS_WEIGHT: i64 = 10_000;
 
     #[allow(clippy::too_many_arguments)]
